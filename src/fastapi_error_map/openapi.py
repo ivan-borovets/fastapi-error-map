@@ -1,26 +1,34 @@
 from typing import Any, Union
 
 from fastapi_error_map.rules import ErrorMap
-from fastapi_error_map.translators import SimpleErrorResponseModel
+from fastapi_error_map.translator_policy import pick_translator_for_status
+from fastapi_error_map.translators import ErrorTranslator
 
 
 def build_openapi_responses(
+    *,
     error_map: ErrorMap,
-    default_response_model: type[Any] = SimpleErrorResponseModel,
+    default_client_error_translator: ErrorTranslator[Any],
+    default_server_error_translator: ErrorTranslator[Any],
 ) -> dict[Union[int, str], dict[str, Any]]:
     responses: dict[Union[int, str], dict[str, Any]] = {}
 
     for value in error_map.values():
         if isinstance(value, int):
-            status_code = value
-            response_model: type[Any] = default_response_model
+            status = value
+            translator = None
         else:
-            status_code = value.status
-            response_model = (
-                value.translator.error_response_model_cls
-                if value.translator is not None
-                else default_response_model
+            status = value.status
+            translator = value.translator
+
+        if translator is None:
+            translator = pick_translator_for_status(
+                status=status,
+                default_client_error_translator=default_client_error_translator,
+                default_server_error_translator=default_server_error_translator,
             )
-        responses[status_code] = {"model": response_model}
+
+        response_model = translator.error_response_model_cls
+        responses[status] = {"model": response_model}
 
     return responses

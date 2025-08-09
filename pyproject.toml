@@ -7,7 +7,7 @@ sources = ["src"]
 
 [project]
 name = "fastapi-error-map"
-version = "0.9.2"
+version = "0.9.3"
 description = "Elegant per-endpoint error handling in FastAPI with OpenAPI schema generation"
 readme = "README.md"
 license = { text = "Apache-2.0" }

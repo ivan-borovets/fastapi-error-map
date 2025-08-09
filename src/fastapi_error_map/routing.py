@@ -100,7 +100,11 @@ class ErrorAwareRoute(APIRoute):
                 default_server_error_translator=self.default_server_error_translator,
             )
         responses = {
-            **build_openapi_responses(self.error_map),
+            **build_openapi_responses(
+                error_map=self.error_map,
+                default_client_error_translator=self.default_client_error_translator,
+                default_server_error_translator=self.default_server_error_translator,
+            ),
             **(responses if responses is not None else {}),
         }
         super().__init__(

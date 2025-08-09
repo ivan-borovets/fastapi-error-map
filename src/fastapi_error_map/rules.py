@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, Union
 
-from starlette import status as http_status
-
+from fastapi_error_map.translator_policy import pick_translator_for_status
 from fastapi_error_map.translators import ErrorTranslator
 
 
@@ -62,6 +61,7 @@ def resolve_rule_for_error(
         status_or_rule = error_map[type(error)]
     except KeyError:
         raise RuntimeError(f"No rule defined for {type(error).__name__}") from error
+
     if isinstance(status_or_rule, int):
         status, translator, on_error = status_or_rule, None, default_on_error
     else:
@@ -70,12 +70,14 @@ def resolve_rule_for_error(
             status_or_rule.translator,
             status_or_rule.on_error or default_on_error,
         )
+
     if translator is None:
-        translator = (
-            default_server_error_translator
-            if status >= http_status.HTTP_500_INTERNAL_SERVER_ERROR
-            else default_client_error_translator
+        translator = pick_translator_for_status(
+            status=status,
+            default_client_error_translator=default_client_error_translator,
+            default_server_error_translator=default_server_error_translator,
         )
+
     return ResolvedRule(
         status=status,
         translator=translator,

@@ -18,10 +18,12 @@ def wrap_with_error_handling(
     default_server_error_translator: ErrorTranslator[Any],
     default_on_error: Optional[Callable[[Exception], None]],
 ) -> Callable[..., Any]:
+    is_coro = inspect.iscoroutinefunction(func)
+
     @wraps(func)
     async def wrapped(*args: Any, **kwargs: Any) -> Any:
         try:
-            if inspect.iscoroutinefunction(func):
+            if is_coro:
                 return await func(*args, **kwargs)
             return func(*args, **kwargs)
         except Exception as error:
@@ -57,7 +59,8 @@ def handle_with_error_map(
     except RuntimeError as exc:
         if warn_on_unmapped:
             raise
-        raise (exc.__cause__ or exc) from None
+        original = exc.__cause__ or exc
+        raise original.with_traceback(original.__traceback__) from None
 
     if rule.on_error is not None:
         rule.on_error(error)

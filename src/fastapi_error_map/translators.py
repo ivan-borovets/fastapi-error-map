@@ -72,4 +72,4 @@ class DefaultServerErrorTranslator(ErrorTranslator[SimpleErrorResponseModel]):
         return SimpleErrorResponseModel
 
     def from_error(self, _err: Exception) -> SimpleErrorResponseModel:
-        return SimpleErrorResponseModel(error="Internal server error.")
+        return SimpleErrorResponseModel(error="Internal server error")

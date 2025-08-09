@@ -82,7 +82,7 @@ there's no single source of truth.
 `fastapi-error-map` solves this by letting you define error handling rules right in the route declaration.
 See the [example in the 🚀 Quickstart](#-quickstart).
 
-### ⚙ How `error_map` Works
+### ⚙ Using `error_map`
 
 Error handling rules are defined directly in the route declaration of an `ErrorAwareRouter`, using the `error_map`
 parameter.
@@ -137,6 +137,13 @@ Parameters of `rule(...)`, * — required:
   `{ "error": "..." }`)
 - `on_error` — function to call when an exception occurs (e.g. logging or alerting)
 
+#### 🧩 Matching semantics
+
+`error_map` matches **exact** exception types only (no inheritance).
+If you map `BaseError` and raise `ChildError(BaseError)`, the rule won’t apply.
+This is by design to keep routing explicit.
+If there’s demand, inheritance-based resolving may be added later as an opt-in.
+
 ### 🧰 Custom Translators
 
 If you want to change the error response format, define your own `translator` — object that implements `ErrorTranslator`
@@ -172,11 +179,16 @@ class MyTranslator(ErrorTranslator[MyErrorResponse]):
 
 ```
 
+#### ⚠️ Translator robustness
+
+Custom translators should not raise exceptions.
+If `from_error(...)` fails at runtime, the exception will propagate to FastAPI’s global handlers.
+
 ### 🔄 Side Effects (`on_error`)
 
 The `on_error` parameter in `rule(...)` allows specifying function to run when exception occurs, before response is
 generated.
-It doesn't affect the HTTP response, but it's useful for:
+It doesn’t change the response status/body when it succeeds and is useful for:
 
 - logging
 - sending alerts
@@ -199,6 +211,13 @@ error_map = {
 }
 
 ```
+
+#### 🚨 Strict side effects
+
+`on_error` is executed before the response is generated.
+If it raises, the exception propagates and the request fails.
+This is intentional to avoid hiding errors in side effects — they should be fixed rather than silently ignored.
+Keep `on_error` robust or wrap it on your side if you prefer soft-fail logging.
 
 ### 🧠 Parameter Precedence
 
