@@ -1,7 +1,11 @@
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, Union
 
-from fastapi_error_map.translator_policy import pick_translator_for_status
+from fastapi_error_map.translator_policy import (
+    pick_translator_for_status,
+    validate_error_status,
+)
 from fastapi_error_map.translators import ErrorTranslator
 
 
@@ -9,14 +13,14 @@ from fastapi_error_map.translators import ErrorTranslator
 class Rule:
     status: int
     translator: Optional[ErrorTranslator[Any]]
-    on_error: Optional[Callable[[Exception], None]]
+    on_error: Optional[Callable[[Exception], Union[Awaitable[None], None]]]
 
 
 def rule(
     *,
     status: int,
     translator: Optional[ErrorTranslator[Any]] = None,
-    on_error: Optional[Callable[[Exception], None]] = None,
+    on_error: Optional[Callable[[Exception], Union[Awaitable[None], None]]] = None,
 ) -> Rule:
     """
     Defines full error handling rule for use in `error_map`.
@@ -46,7 +50,7 @@ ErrorMap = dict[type[Exception], Union[int, Rule]]
 class ResolvedRule:
     status: int
     translator: ErrorTranslator[Any]
-    on_error: Optional[Callable[[Exception], None]]
+    on_error: Optional[Callable[[Exception], Union[Awaitable[None], None]]]
 
 
 def resolve_rule_for_error(
@@ -55,7 +59,9 @@ def resolve_rule_for_error(
     error_map: ErrorMap,
     default_client_error_translator: ErrorTranslator[Any],
     default_server_error_translator: ErrorTranslator[Any],
-    default_on_error: Optional[Callable[[Exception], None]] = None,
+    default_on_error: Optional[
+        Callable[[Exception], Union[Awaitable[None], None]]
+    ] = None,
 ) -> ResolvedRule:
     try:
         status_or_rule = error_map[type(error)]
@@ -70,6 +76,8 @@ def resolve_rule_for_error(
             status_or_rule.translator,
             status_or_rule.on_error or default_on_error,
         )
+
+    validate_error_status(status)
 
     if translator is None:
         translator = pick_translator_for_status(

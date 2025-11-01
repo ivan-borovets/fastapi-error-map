@@ -1,12 +1,19 @@
 from typing import Any
 
-from starlette import status as http_status
-
 from fastapi_error_map.translators import ErrorTranslator
 
 
 def is_server_error(status: int) -> bool:
-    return status >= http_status.HTTP_500_INTERNAL_SERVER_ERROR
+    return status // 100 == 5
+
+
+def is_client_error(status: int) -> bool:
+    return status // 100 == 4
+
+
+def validate_error_status(status: int) -> None:
+    if not (is_client_error(status) or is_server_error(status)):
+        raise RuntimeError(f"Unsupported status for error_map: {status}. Use 4xx/5xx.")
 
 
 def pick_translator_for_status(

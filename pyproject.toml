@@ -7,7 +7,7 @@ sources = ["src"]
 
 [project]
 name = "fastapi-error-map"
-version = "0.9.6"
+version = "0.9.8"
 description = "Elegant per-endpoint error handling for FastAPI that keeps OpenAPI in sync"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
     "Intended Audience :: Developers",
@@ -30,19 +31,15 @@ classifiers = [
     "Framework :: FastAPI",
 ]
 dependencies = [
-    "fastapi>=0.100.0",
-    "orjson>=3.8.4",
+    "fastapi>=0.100,<1.0",
+    "orjson>=3.11.4",
 ]
-
-[project.urls]
-Homepage = "https://github.com/ivan-borovets/fastapi-error-map"
-Repository = "https://github.com/ivan-borovets/fastapi-error-map"
-
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "mypy==1.8.0",
     "pre-commit==4.2.0",
     "ruff==0.11.2",
+    { include-group = "test" },
 ]
 test = [
     "coverage==7.10.1",
@@ -58,6 +55,15 @@ publish = [
 examples = [
     "uvicorn==0.35.0",
 ]
+all = [
+    { include-group = "dev" },
+    { include-group = "publish" },
+    { include-group = "examples" },
+]
+
+[project.urls]
+Homepage = "https://github.com/ivan-borovets/fastapi-error-map"
+Repository = "https://github.com/ivan-borovets/fastapi-error-map"
 
 [tool.coverage.report]
 show_missing = true
@@ -179,6 +185,6 @@ split-on-trailing-comma = true
 "src/fastapi_error_map/translators.py" = [
     "ARG002", # unused-method-argument
 ]
-
-[tool.slotscheck]
-strict-imports = true
+"src/fastapi_error_map/translator_policy.py" = [
+    "PLR2004", # magic-value-comparison
+]

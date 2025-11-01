@@ -1,5 +1,8 @@
 from typing import TYPE_CHECKING
 
+import pytest
+from starlette import status
+
 from fastapi_error_map.openapi import build_openapi_responses
 from fastapi_error_map.rules import rule
 from tests.unit.error_stubs import DatabaseError, ValidationError
@@ -63,3 +66,20 @@ def test_builds_response_with_custom_translator() -> None:
     )
 
     assert responses == {400: {"model": dict}}
+
+
+@pytest.mark.parametrize(
+    "bad_status",
+    [
+        status.HTTP_200_OK,
+        status.HTTP_300_MULTIPLE_CHOICES,
+        status.WS_1000_NORMAL_CLOSURE,
+    ],
+)
+def test_rejects_non_error_status_codes(bad_status: int) -> None:
+    with pytest.raises(RuntimeError):
+        build_openapi_responses(
+            error_map={ValidationError: bad_status},
+            default_client_error_translator=DummyClientErrorTranslator(),
+            default_server_error_translator=DummyServerErrorTranslator(),
+        )

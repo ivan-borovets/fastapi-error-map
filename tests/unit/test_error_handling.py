@@ -1,12 +1,17 @@
 import asyncio
-from typing import NoReturn
-from unittest.mock import Mock
+from collections.abc import Awaitable
+from functools import partial
+from typing import NoReturn, cast
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from starlette.responses import JSONResponse
 
 from fastapi_error_map import rule
-from fastapi_error_map.error_handling import wrap_with_error_handling
+from fastapi_error_map.error_handling import (
+    handle_with_error_map,
+    wrap_with_error_handling,
+)
 from fastapi_error_map.translators import (
     DefaultClientErrorTranslator,
     DefaultServerErrorTranslator,
@@ -126,3 +131,97 @@ async def test_wrap_calls_on_error_with_error_if_defined() -> None:
 
     mock_on_error.assert_called_once()
     assert isinstance(mock_on_error.call_args[0][0], ValidationError)
+
+
+@pytest.mark.asyncio
+async def test_handles_sync_on_error_from_map() -> None:
+    mock_on_error = Mock()
+    error = ValidationError()
+
+    sut = await handle_with_error_map(
+        error=error,
+        error_map={ValidationError: rule(status=422, on_error=mock_on_error)},
+        warn_on_unmapped=True,
+        default_client_error_translator=DefaultClientErrorTranslator(),
+        default_server_error_translator=DefaultServerErrorTranslator(),
+        default_on_error=None,
+    )
+
+    assert sut.status_code == 422
+    mock_on_error.assert_called_once_with(error)
+
+
+@pytest.mark.asyncio
+async def test_handles_default_on_error_from_defaults() -> None:
+    mock_on_error = AsyncMock()
+    error = ValidationError()
+
+    sut = await handle_with_error_map(
+        error=error,
+        error_map={ValidationError: 422},
+        warn_on_unmapped=True,
+        default_client_error_translator=DefaultClientErrorTranslator(),
+        default_server_error_translator=DefaultServerErrorTranslator(),
+        default_on_error=mock_on_error,
+    )
+
+    assert sut.status_code == 422
+    mock_on_error.assert_awaited_once_with(error)
+
+
+@pytest.mark.asyncio
+async def test_handles_async_on_error() -> None:
+    mock_on_error = AsyncMock()
+    error = ValidationError()
+
+    sut = await handle_with_error_map(
+        error=error,
+        error_map={ValidationError: rule(status=422, on_error=mock_on_error)},
+        warn_on_unmapped=True,
+        default_client_error_translator=DefaultClientErrorTranslator(),
+        default_server_error_translator=DefaultServerErrorTranslator(),
+        default_on_error=None,
+    )
+
+    assert sut.status_code == 422
+    mock_on_error.assert_awaited_once_with(error)
+
+
+@pytest.mark.asyncio
+async def test_handles_async_on_error_partial() -> None:
+    wrapped = AsyncMock()
+    mock_on_error = partial(wrapped)
+    error = ValidationError()
+
+    sut = await handle_with_error_map(
+        error=error,
+        error_map={ValidationError: rule(status=422, on_error=mock_on_error)},
+        warn_on_unmapped=True,
+        default_client_error_translator=DefaultClientErrorTranslator(),
+        default_server_error_translator=DefaultServerErrorTranslator(),
+        default_on_error=None,
+    )
+
+    assert sut.status_code == 422
+    wrapped.assert_awaited_once_with(error)
+
+
+@pytest.mark.asyncio
+async def test_handles_sync_on_error_returning_awaitable() -> None:
+    coro = AsyncMock()
+    error = ValidationError()
+
+    def on_error(err: Exception) -> Awaitable[None]:
+        return cast("Awaitable[None]", coro(err))
+
+    sut = await handle_with_error_map(
+        error=error,
+        error_map={ValidationError: rule(status=422, on_error=on_error)},
+        warn_on_unmapped=True,
+        default_client_error_translator=DefaultClientErrorTranslator(),
+        default_server_error_translator=DefaultServerErrorTranslator(),
+        default_on_error=None,
+    )
+
+    assert sut.status_code == 422
+    coro.assert_awaited_once_with(error)

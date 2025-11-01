@@ -1,7 +1,10 @@
 from typing import Any, Union
 
 from fastapi_error_map.rules import ErrorMap
-from fastapi_error_map.translator_policy import pick_translator_for_status
+from fastapi_error_map.translator_policy import (
+    pick_translator_for_status,
+    validate_error_status,
+)
 from fastapi_error_map.translators import ErrorTranslator
 
 
@@ -20,6 +23,8 @@ def build_openapi_responses(
         else:
             status = value.status
             translator = value.translator
+
+        validate_error_status(status)
 
         if translator is None:
             translator = pick_translator_for_status(

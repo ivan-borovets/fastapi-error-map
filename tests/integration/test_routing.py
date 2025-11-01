@@ -1,12 +1,15 @@
 import asyncio
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
-import httpx
 import pytest
 from fastapi import FastAPI
-from httpx import ASGITransport
 
 from fastapi_error_map import ErrorAwareRouter, rule
+from tests.integration.conftest import AsgiClientFactory
+
+if TYPE_CHECKING:
+    import httpx
 
 
 class CustomError(Exception):
@@ -15,8 +18,11 @@ class CustomError(Exception):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["get", "post", "put", "patch", "delete"])
-async def test_error_aware_router_routes(method: str) -> None:
-    app = FastAPI()
+async def test_error_aware_router_routes(
+    method: str,
+    app: FastAPI,
+    asgi_client_factory: AsgiClientFactory,
+) -> None:
     router = ErrorAwareRouter()
     router_path = "/fail"
     error_message = "This is a test"
@@ -35,8 +41,7 @@ async def test_error_aware_router_routes(method: str) -> None:
     )(failing_endpoint)
     app.include_router(router)
 
-    transport = ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+    async with asgi_client_factory(app) as client:
         response: httpx.Response = await getattr(client, method)(router_path)
         openapi_response: httpx.Response = await client.get("/openapi.json")
 

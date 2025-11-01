@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 
 from fastapi_error_map.translators import ErrorTranslator
@@ -25,5 +26,6 @@ class OutOfStockTranslator(ErrorTranslator[ErrorResponseModel]):
         return ErrorResponseModel
 
 
-def notify(err: Exception) -> None:
+async def notify(err: Exception) -> None:
+    await asyncio.sleep(0)
     print("Notified admin:", err)
