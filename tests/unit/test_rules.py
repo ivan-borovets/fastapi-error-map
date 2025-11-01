@@ -1,6 +1,7 @@
 from typing import Union
 
 import pytest
+from starlette import status
 
 from fastapi_error_map.rules import Rule, resolve_rule_for_error, rule
 from tests.unit.error_stubs import DatabaseError, UnknownError, ValidationError
@@ -53,6 +54,25 @@ def test_resolves_status_code_with_server_error_translator(
 
     assert sut.status == 503
     assert isinstance(sut.translator, DummyServerErrorTranslator)
+
+
+@pytest.mark.parametrize(
+    "bad_status",
+    [
+        status.HTTP_200_OK,
+        status.HTTP_300_MULTIPLE_CHOICES,
+        status.WS_1000_NORMAL_CLOSURE,
+    ],
+)
+def test_resolver_rejects_non_error_status_codes(bad_status: int) -> None:
+    with pytest.raises(RuntimeError):
+        resolve_rule_for_error(
+            error=ValidationError(),
+            error_map={ValidationError: bad_status},
+            default_client_error_translator=DummyClientErrorTranslator(),
+            default_server_error_translator=DummyServerErrorTranslator(),
+            default_on_error=None,
+        )
 
 
 def test_does_not_override_explicit_translator() -> None:

@@ -1,7 +1,7 @@
 ## FastAPI Error Map
 
-[![PyPI version](https://badge.fury.io/py/fastapi-error-map.svg?cacheBust=6)](https://badge.fury.io/py/fastapi-error-map)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/fastapi-error-map?cacheBust=1)
+[![PyPI version](https://badge.fury.io/py/fastapi-error-map.svg?cacheBust=7)](https://badge.fury.io/py/fastapi-error-map)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/fastapi-error-map?cacheBust=4)
 [![codecov](https://codecov.io/gh/ivan-borovets/fastapi-error-map/branch/master/graph/badge.svg?token=ABTVQLI0RL)](https://codecov.io/gh/ivan-borovets/fastapi-error-map)
 ![GitHub License](https://img.shields.io/github/license/ivan-borovets/fastapi-error-map?cacheBust=1)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ivan-borovets/fastapi-error-map/ci.yaml?cacheBust=1)
@@ -87,6 +87,9 @@ See the [example in the 🚀 Quickstart](#-quickstart).
 Error handling rules are defined directly in the route declaration of an `ErrorAwareRouter`, using the `error_map`
 parameter.
 
+> [!NOTE]
+> `error_map` handles HTTP error responses only — statuses must be 4xx or 5xx.
+
 There are two ways to do it:
 
 #### 🔸 Short Form
@@ -132,10 +135,10 @@ error_map = {
 
 Parameters of `rule(...)`, * — required:
 
-- `status`* — HTTP status code to return (e.g. `404`, `409`, `422`)
-- `translator` — object that converts an exception into JSON response. If not provided, the default one is used (returns
-  `{ "error": "..." }`)
-- `on_error` — function to call when an exception occurs (e.g. logging or alerting)
+- `status`* — HTTP status code to return (must be 4xx or 5xx; e.g. `404`, `409`, `422`)
+- `translator` — object that converts an exception into serializable payload. If not provided, the default one is used
+  (`{ "error": str(err) }` for 4xx; `{ "error": "Internal server error" }` for 5xx).
+- `on_error` — function to call when an exception occurs (e.g. logging or alerting). Can be awaitable
 
 #### 🧩 Matching semantics
 
@@ -187,7 +190,7 @@ If `from_error(...)` fails at runtime, the exception will propagate to FastAPI�
 ### 🔄 Side Effects (`on_error`)
 
 The `on_error` parameter in `rule(...)` allows specifying function to run when exception occurs, before response is
-generated.
+generated. The awaitable function will be awaited.
 It doesn’t change the response status/body when it succeeds and is useful for:
 
 - logging
@@ -260,7 +263,8 @@ When an error occurs, `fastapi-error-map` processes it as follows:
     - If the status is `>= 500`, `default_server_error_translator` is used (if given)
     - If none are set, the built-in one is used:
   ```raw
-  { "error": "..." } or { "error": "Internal server error" }
+  { "error": str(err) } for 4xx;
+  { "error": "Internal server error" } for 5xx
   ```
 
 3. `on_error`:
