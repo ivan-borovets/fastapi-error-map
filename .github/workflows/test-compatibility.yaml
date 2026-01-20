@@ -33,4 +33,4 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Run tests
-        run: uvx nox -s compatibility
+        run: uvx --with "nox[pbs]" nox -s compatibility
