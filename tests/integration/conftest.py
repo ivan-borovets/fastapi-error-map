@@ -1,12 +1,8 @@
 from collections.abc import AsyncIterator
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import Callable
 
+import httpx
 import pytest
 from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
-
-AsgiClientFactory = Callable[[FastAPI], AbstractAsyncContextManager[AsyncClient]]
 
 
 @pytest.fixture
@@ -15,11 +11,9 @@ def app() -> FastAPI:
 
 
 @pytest.fixture
-def asgi_client_factory() -> AsgiClientFactory:
-    @asynccontextmanager
-    async def _make(app: FastAPI) -> AsyncIterator[AsyncClient]:
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            yield client
-
-    return _make
+async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        yield client

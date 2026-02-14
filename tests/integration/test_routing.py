@@ -1,15 +1,11 @@
 import asyncio
-from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
+import httpx
 import pytest
 from fastapi import FastAPI
 
 from fastapi_error_map import ErrorAwareRouter, rule
-from tests.integration.conftest import AsgiClientFactory
-
-if TYPE_CHECKING:
-    import httpx
 
 
 class CustomError(Exception):
@@ -21,7 +17,7 @@ class CustomError(Exception):
 async def test_error_aware_router_routes(
     method: str,
     app: FastAPI,
-    asgi_client_factory: AsgiClientFactory,
+    client: httpx.AsyncClient,
 ) -> None:
     router = ErrorAwareRouter()
     router_path = "/fail"
@@ -41,9 +37,8 @@ async def test_error_aware_router_routes(
     )(failing_endpoint)
     app.include_router(router)
 
-    async with asgi_client_factory(app) as client:
-        response: httpx.Response = await getattr(client, method)(router_path)
-        openapi_response: httpx.Response = await client.get("/openapi.json")
+    response: httpx.Response = await getattr(client, method)(router_path)
+    openapi_response: httpx.Response = await client.get("/openapi.json")
 
     response_data = response.json()
     assert response.status_code == error_status_code

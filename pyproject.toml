@@ -110,6 +110,7 @@ testpaths = ["tests", ]
 markers = ["slow", ]
 addopts = "-m 'not slow'"
 asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 88
