@@ -142,10 +142,13 @@ Parameters of `rule(...)`, * — required:
 
 #### 🧩 Matching semantics
 
-`error_map` matches **exact** exception types only (no inheritance).
-If you map `BaseError` and raise `ChildError(BaseError)`, the rule won’t apply.
-This is by design to keep routing explicit.
-If there’s demand, inheritance-based resolving may be added later as an opt-in.
+`error_map` resolves exceptions using Python's Method Resolution Order (MRO).
+The most specific exception type is matched first.
+If no exact match is found, parent classes are checked in MRO order.
+
+For example, if you map `BaseError` and raise `ChildError(BaseError)`,
+the rule for `BaseError` will apply — unless a specific rule for
+`ChildError` is defined, in which case it takes precedence.
 
 ### 🧰 Custom Translators
 

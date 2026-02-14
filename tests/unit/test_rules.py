@@ -14,6 +14,22 @@ from tests.unit.translator_stubs import (
 ErrorMap = dict[type[Exception], Union[int, Rule]]
 
 
+class ParentError(Exception):
+    pass
+
+
+class ChildError(ParentError):
+    pass
+
+
+class OtherParentError(Exception):
+    pass
+
+
+class MultipleInheritanceError(ChildError, OtherParentError):
+    pass
+
+
 @pytest.mark.parametrize(
     "rule",
     [
@@ -104,4 +120,55 @@ def test_unmapped_error_raises_runtime_error() -> None:
             default_client_error_translator=DummyClientErrorTranslator(),
             default_server_error_translator=DummyServerErrorTranslator(),
             default_on_error=None,
+        )
+
+
+def test_resolves_child_over_parent() -> None:
+    sut = resolve_rule_for_error(
+        error=ChildError(),
+        error_map={
+            ParentError: 400,
+            ChildError: 409,
+        },
+        default_client_error_translator=DummyClientErrorTranslator(),
+        default_server_error_translator=DummyServerErrorTranslator(),
+    )
+
+    assert sut.status == 409
+
+
+def test_falls_back_to_parent_when_child_missing() -> None:
+    sut = resolve_rule_for_error(
+        error=ChildError(),
+        error_map={
+            ParentError: 400,
+        },
+        default_client_error_translator=DummyClientErrorTranslator(),
+        default_server_error_translator=DummyServerErrorTranslator(),
+    )
+
+    assert sut.status == 400
+
+
+def test_multiple_inheritance_prefers_first_match_in_mro() -> None:
+    sut = resolve_rule_for_error(
+        error=MultipleInheritanceError(),
+        error_map={
+            OtherParentError: 402,
+            ChildError: 409,
+        },
+        default_client_error_translator=DummyClientErrorTranslator(),
+        default_server_error_translator=DummyServerErrorTranslator(),
+    )
+
+    assert sut.status == 409
+
+
+def test_does_not_resolve_base_exception_subclasses() -> None:
+    with pytest.raises(RuntimeError):
+        resolve_rule_for_error(
+            error=KeyboardInterrupt(),  # type: ignore
+            error_map={},
+            default_client_error_translator=DummyClientErrorTranslator(),
+            default_server_error_translator=DummyServerErrorTranslator(),
         )
