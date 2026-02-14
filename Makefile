@@ -1,23 +1,24 @@
-# Code quality
-.PHONY: code.format code.lint code.test code.cov code.cov.html code.check
-code.format:
-	ruff format
+# Make config
+.SILENT:
+MAKEFLAGS += --no-print-directory
 
-code.lint: code.format
-	ruff check --exit-non-zero-on-fix
+# Code quality
+.PHONY: lint test check coverage
+lint:
+	ruff check --fix
+	ruff format
 	mypy
 
-code.test:
+test:
 	pytest -v
 
-code.cov:
-	coverage run -m pytest
-	coverage combine
-	coverage report
+check: lint test
 
-code.cov.html:
-	coverage run -m pytest
-	coverage combine
+coverage: check
 	coverage html
 
-code.check: code.lint code.test
+# Project structure visualization
+.PHONY: pycache-del
+pycache-del:
+	find . -type d -name '__pycache__' -prune -exec rm -rf {} +; \
+	find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
