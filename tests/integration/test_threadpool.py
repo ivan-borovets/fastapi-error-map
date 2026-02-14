@@ -2,7 +2,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 
 from fastapi_error_map import ErrorAwareRouter, rule
 from tests.integration.conftest import AsgiClientFactory
@@ -20,13 +20,17 @@ def has_running_loop_in_this_thread() -> bool:
 
 
 @pytest.mark.asyncio
-async def test_fastapi_sync_handler_runs_in_threadpool(
+async def test_fastapi_api_router_sync_handler_runs_in_threadpool(
     app: FastAPI,
     asgi_client_factory: AsgiClientFactory,
 ) -> None:
-    @app.get("/")
+    router = APIRouter()
+
+    @router.get("/")
     def index():
         return {"in_loop": has_running_loop_in_this_thread()}
+
+    app.include_router(router)
 
     async with asgi_client_factory(app) as client:
         index_response: httpx.Response = await client.get("/")
@@ -42,7 +46,7 @@ async def test_error_aware_router_sync_handler_runs_in_threadpool(
 ) -> None:
     router = ErrorAwareRouter()
 
-    @app.get("/")
+    @router.get("/", error_map={ValueError: 400})
     def index():
         return {"in_loop": has_running_loop_in_this_thread()}
 

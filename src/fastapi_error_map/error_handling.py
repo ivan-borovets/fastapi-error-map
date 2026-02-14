@@ -27,7 +27,7 @@ def wrap_with_error_handling(
         try:
             if is_coro:
                 return await func(*args, **kwargs)
-            return func(*args, **kwargs)
+            return await run_in_threadpool(func, *args, **kwargs)
         except Exception as error:
             return await handle_with_error_map(
                 error=error,
