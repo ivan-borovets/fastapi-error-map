@@ -7,7 +7,7 @@ sources = ["src"]
 
 [project]
 name = "fastapi-error-map"
-version = "0.9.8"
+version = "0.9.9"
 description = "Elegant per-endpoint error handling for FastAPI that keeps OpenAPI in sync"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -92,6 +92,7 @@ parallel = true
 branch = true
 
 [tool.mypy]
+python_version = "3.9"
 files = [
     "examples",
     "src",
@@ -114,6 +115,7 @@ asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 88
+target-version = "py39"
 preview = true  # experimental
 
 [tool.ruff.format]

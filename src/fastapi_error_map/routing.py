@@ -48,6 +48,7 @@ class ErrorAwareRoute(APIRoute):
         warn_on_unmapped: bool = True,
         default_client_error_translator: Optional[ErrorTranslator[Any]] = None,
         default_server_error_translator: Optional[ErrorTranslator[Any]] = None,
+        exclude_none: bool = False,
         # --- FastAPI ---
         response_model: Any = Default(None),
         status_code: Optional[int] = None,
@@ -98,6 +99,7 @@ class ErrorAwareRoute(APIRoute):
                 default_on_error=self.default_on_error,
                 default_client_error_translator=self.default_client_error_translator,
                 default_server_error_translator=self.default_server_error_translator,
+                exclude_none=exclude_none,
             )
         responses = {
             **build_openapi_responses(
@@ -405,6 +407,7 @@ class ErrorAwareRouter(APIRouter):
         warn_on_unmapped: bool = True,
         default_client_error_translator: Optional[ErrorTranslator[Any]] = None,
         default_server_error_translator: Optional[ErrorTranslator[Any]] = None,
+        exclude_none: bool = False,
         # --- FastAPI ---
         response_model: Any = Default(None),
         status_code: Optional[int] = None,
@@ -462,6 +465,7 @@ class ErrorAwareRouter(APIRouter):
                 default_on_error=default_on_error,
                 default_client_error_translator=default_client_error_translator,
                 default_server_error_translator=default_server_error_translator,
+                exclude_none=exclude_none,
                 response_model=response_model,
                 status_code=status_code,
                 tags=current_tags,
@@ -528,6 +532,7 @@ class ErrorAwareRouter(APIRouter):
         warn_on_unmapped: bool = True,
         default_client_error_translator: Optional[ErrorTranslator[Any]] = None,
         default_server_error_translator: Optional[ErrorTranslator[Any]] = None,
+        exclude_none: bool = False,
         # --- FastAPI ---
         response_model: Any = Default(None),
         status_code: Optional[int] = None,
@@ -564,6 +569,7 @@ class ErrorAwareRouter(APIRouter):
                 default_on_error=default_on_error,
                 default_client_error_translator=default_client_error_translator,
                 default_server_error_translator=default_server_error_translator,
+                exclude_none=exclude_none,
                 response_model=response_model,
                 status_code=status_code,
                 tags=tags,
@@ -612,6 +618,7 @@ class ErrorAwareRouter(APIRouter):
         warn_on_unmapped: bool = True,
         default_client_error_translator: Optional[ErrorTranslator[Any]] = None,
         default_server_error_translator: Optional[ErrorTranslator[Any]] = None,
+        exclude_none: bool = False,
         # --- FastAPI ---
         response_model: Annotated[
             Any,
@@ -957,6 +964,7 @@ class ErrorAwareRouter(APIRouter):
             default_on_error=default_on_error,
             default_client_error_translator=default_client_error_translator,
             default_server_error_translator=default_server_error_translator,
+            exclude_none=exclude_none,
             response_model=response_model,
             status_code=status_code,
             tags=tags,
@@ -1002,6 +1010,7 @@ class ErrorAwareRouter(APIRouter):
         warn_on_unmapped: bool = True,
         default_client_error_translator: Optional[ErrorTranslator[Any]] = None,
         default_server_error_translator: Optional[ErrorTranslator[Any]] = None,
+        exclude_none: bool = False,
         # --- FastAPI ---
         response_model: Annotated[
             Any,
@@ -1352,6 +1361,7 @@ class ErrorAwareRouter(APIRouter):
             default_on_error=default_on_error,
             default_client_error_translator=default_client_error_translator,
             default_server_error_translator=default_server_error_translator,
+            exclude_none=exclude_none,
             response_model=response_model,
             status_code=status_code,
             tags=tags,
@@ -1397,6 +1407,7 @@ class ErrorAwareRouter(APIRouter):
         warn_on_unmapped: bool = True,
         default_client_error_translator: Optional[ErrorTranslator[Any]] = None,
         default_server_error_translator: Optional[ErrorTranslator[Any]] = None,
+        exclude_none: bool = False,
         # --- FastAPI ---
         response_model: Annotated[
             Any,
@@ -1747,6 +1758,7 @@ class ErrorAwareRouter(APIRouter):
             default_on_error=default_on_error,
             default_client_error_translator=default_client_error_translator,
             default_server_error_translator=default_server_error_translator,
+            exclude_none=exclude_none,
             response_model=response_model,
             status_code=status_code,
             tags=tags,
@@ -1792,6 +1804,7 @@ class ErrorAwareRouter(APIRouter):
         warn_on_unmapped: bool = True,
         default_client_error_translator: Optional[ErrorTranslator[Any]] = None,
         default_server_error_translator: Optional[ErrorTranslator[Any]] = None,
+        exclude_none: bool = False,
         # --- FastAPI ---
         response_model: Annotated[
             Any,
@@ -2142,6 +2155,7 @@ class ErrorAwareRouter(APIRouter):
             default_on_error=default_on_error,
             default_client_error_translator=default_client_error_translator,
             default_server_error_translator=default_server_error_translator,
+            exclude_none=exclude_none,
             response_model=response_model,
             status_code=status_code,
             tags=tags,
@@ -2187,6 +2201,7 @@ class ErrorAwareRouter(APIRouter):
         warn_on_unmapped: bool = True,
         default_client_error_translator: Optional[ErrorTranslator[Any]] = None,
         default_server_error_translator: Optional[ErrorTranslator[Any]] = None,
+        exclude_none: bool = False,
         # --- FastAPI ---
         response_model: Annotated[
             Any,
@@ -2532,6 +2547,7 @@ class ErrorAwareRouter(APIRouter):
             default_on_error=default_on_error,
             default_client_error_translator=default_client_error_translator,
             default_server_error_translator=default_server_error_translator,
+            exclude_none=exclude_none,
             response_model=response_model,
             status_code=status_code,
             tags=tags,

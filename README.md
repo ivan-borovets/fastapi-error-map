@@ -247,6 +247,7 @@ In addition to `error_map`, you can also pass:
     warn_on_unmapped=...,
     default_client_error_translator=...,
     default_server_error_translator=...,
+    exclude_none=...,
 )
 ```
 
@@ -274,6 +275,11 @@ When an error occurs, `fastapi-error-map` processes it as follows:
     - If provided in `rule(...)`, it is used
     - Otherwise, `default_on_error` is used if provided
     - If neither is set, nothing is called
+
+4. `exclude_none`:
+    - If `True`, fields with value `None` are omitted from the serialized
+      error response body
+    - If `False` (default), `None` values are included as `null`
 
 #### 🧾 OpenAPI: `responses` Takes Priority
 

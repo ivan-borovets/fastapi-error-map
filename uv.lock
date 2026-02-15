@@ -405,7 +405,7 @@ wheels = [
 
 [[package]]
 name = "fastapi-error-map"
-version = "0.9.8"
+version = "0.9.9"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

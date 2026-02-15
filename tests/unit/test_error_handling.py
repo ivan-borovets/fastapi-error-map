@@ -145,6 +145,7 @@ async def test_handles_sync_on_error_from_map() -> None:
         default_client_error_translator=DefaultClientErrorTranslator(),
         default_server_error_translator=DefaultServerErrorTranslator(),
         default_on_error=None,
+        exclude_none=False,
     )
 
     assert sut.status_code == 422
@@ -163,6 +164,7 @@ async def test_handles_default_on_error_from_defaults() -> None:
         default_client_error_translator=DefaultClientErrorTranslator(),
         default_server_error_translator=DefaultServerErrorTranslator(),
         default_on_error=mock_on_error,
+        exclude_none=False,
     )
 
     assert sut.status_code == 422
@@ -181,6 +183,7 @@ async def test_handles_async_on_error() -> None:
         default_client_error_translator=DefaultClientErrorTranslator(),
         default_server_error_translator=DefaultServerErrorTranslator(),
         default_on_error=None,
+        exclude_none=False,
     )
 
     assert sut.status_code == 422
@@ -200,6 +203,7 @@ async def test_handles_async_on_error_partial() -> None:
         default_client_error_translator=DefaultClientErrorTranslator(),
         default_server_error_translator=DefaultServerErrorTranslator(),
         default_on_error=None,
+        exclude_none=False,
     )
 
     assert sut.status_code == 422
@@ -221,6 +225,7 @@ async def test_handles_sync_on_error_returning_awaitable() -> None:
         default_client_error_translator=DefaultClientErrorTranslator(),
         default_server_error_translator=DefaultServerErrorTranslator(),
         default_on_error=None,
+        exclude_none=False,
     )
 
     assert sut.status_code == 422

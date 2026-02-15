@@ -19,6 +19,7 @@ def wrap_with_error_handling(
     default_client_error_translator: ErrorTranslator[Any],
     default_server_error_translator: ErrorTranslator[Any],
     default_on_error: Optional[Callable[[Exception], Union[Awaitable[None], None]]],
+    exclude_none: bool = False,
 ) -> Callable[..., Any]:
     is_coro = inspect.iscoroutinefunction(func)
 
@@ -36,6 +37,7 @@ def wrap_with_error_handling(
                 default_client_error_translator=default_client_error_translator,
                 default_server_error_translator=default_server_error_translator,
                 default_on_error=default_on_error,
+                exclude_none=exclude_none,
             )
 
     return wrapped
@@ -49,6 +51,7 @@ async def handle_with_error_map(
     default_client_error_translator: ErrorTranslator[Any],
     default_server_error_translator: ErrorTranslator[Any],
     default_on_error: Optional[Callable[[Exception], Union[Awaitable[None], None]]],
+    exclude_none: bool,
 ) -> ORJSONResponse:
     try:
         rule = resolve_rule_for_error(
@@ -75,5 +78,8 @@ async def handle_with_error_map(
     content = rule.translator.from_error(error)
     return ORJSONResponse(
         status_code=rule.status,
-        content=jsonable_encoder(content),
+        content=jsonable_encoder(
+            content,
+            exclude_none=exclude_none,
+        ),
     )
