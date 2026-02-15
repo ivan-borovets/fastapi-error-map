@@ -21,7 +21,7 @@ jobs:
         run: uv sync --locked --group all
 
       - name: Lint code
-        run: uv run make code.lint
+        run: uv run make lint
 
       - name: Run tests for Codecov
         run: uv run pytest --cov=fastapi_error_map --cov-branch --cov-report=xml
