@@ -63,9 +63,14 @@ def resolve_rule_for_error(
         Callable[[Exception], Union[Awaitable[None], None]]
     ] = None,
 ) -> ResolvedRule:
-    try:
-        status_or_rule = error_map[type(error)]
-    except KeyError:
+    status_or_rule: Union[int, Rule, None] = None
+    for cls in type(error).mro():
+        if not issubclass(cls, Exception):
+            continue
+        if cls in error_map:
+            status_or_rule = error_map[cls]
+            break
+    if status_or_rule is None:
         raise RuntimeError(f"No rule defined for {type(error).__name__}") from error
 
     if isinstance(status_or_rule, int):

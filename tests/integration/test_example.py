@@ -1,22 +1,19 @@
-from typing import TYPE_CHECKING
-
+import httpx
 import pytest
 
 from examples.main import create_app
-from tests.integration.conftest import AsgiClientFactory
-
-if TYPE_CHECKING:
-    import httpx
 
 
 @pytest.mark.asyncio
 async def test_check_stock(
-    asgi_client_factory: AsgiClientFactory,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     app = create_app()
 
-    async with asgi_client_factory(app) as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
         authz_err_response: httpx.Response = await client.get("/stock?user_id=0")
         out_of_stock_err_response: httpx.Response = await client.get("/stock?user_id=1")
         openapi_response: httpx.Response = await client.get("/openapi.json")

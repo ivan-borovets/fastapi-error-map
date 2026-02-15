@@ -11,4 +11,4 @@ def compatibility(session, fastapi):
     else:
         session.run("uv", "add", f"fastapi=={fastapi}", "--active", external=True)
 
-    session.run("uv", "run", "--active", "make", "code.test", external=True)
+    session.run("uv", "run", "--active", "make", "test", external=True)

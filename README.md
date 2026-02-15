@@ -142,10 +142,13 @@ Parameters of `rule(...)`, * — required:
 
 #### 🧩 Matching semantics
 
-`error_map` matches **exact** exception types only (no inheritance).
-If you map `BaseError` and raise `ChildError(BaseError)`, the rule won’t apply.
-This is by design to keep routing explicit.
-If there’s demand, inheritance-based resolving may be added later as an opt-in.
+`error_map` resolves exceptions using Python's Method Resolution Order (MRO).
+The most specific exception type is matched first.
+If no exact match is found, parent classes are checked in MRO order.
+
+For example, if you map `BaseError` and raise `ChildError(BaseError)`,
+the rule for `BaseError` will apply — unless a specific rule for
+`ChildError` is defined, in which case it takes precedence.
 
 ### 🧰 Custom Translators
 
@@ -244,6 +247,7 @@ In addition to `error_map`, you can also pass:
     warn_on_unmapped=...,
     default_client_error_translator=...,
     default_server_error_translator=...,
+    exclude_none=...,
 )
 ```
 
@@ -271,6 +275,11 @@ When an error occurs, `fastapi-error-map` processes it as follows:
     - If provided in `rule(...)`, it is used
     - Otherwise, `default_on_error` is used if provided
     - If neither is set, nothing is called
+
+4. `exclude_none`:
+    - If `True`, fields with value `None` are omitted from the serialized
+      error response body
+    - If `False` (default), `None` values are included as `null`
 
 #### 🧾 OpenAPI: `responses` Takes Priority
 
