@@ -1,9 +1,10 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import Enum
 from typing import (
     Any,
     Callable,
     Dict,
+    Final,
     List,
     Optional,
     Set,
@@ -11,6 +12,7 @@ from typing import (
     Union,
 )
 
+import fastapi
 from fastapi import params
 from fastapi.datastructures import Default, DefaultPlaceholder
 from fastapi.routing import APIRoute, APIRouter
@@ -19,6 +21,7 @@ from fastapi.utils import (
     generate_unique_id,
     get_value_or_default,
 )
+from packaging.version import Version
 from starlette.responses import JSONResponse, Response
 from starlette.routing import (
     BaseRoute,
@@ -34,6 +37,35 @@ from fastapi_error_map.translators import (
     DefaultServerErrorTranslator,
     ErrorTranslator,
 )
+
+_FASTAPI_VERSION: Final[Version] = Version(fastapi.__version__)
+_HAS_STRICT_CONTENT_TYPE: Final[bool] = _FASTAPI_VERSION >= Version("0.132.0")  # noqa: SIM300
+
+
+def _with_strict_content_type(
+    strict_content_type: Union[bool, DefaultPlaceholder],
+    kwargs: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """
+    Returns a new kwargs dict with 'strict_content_type' added only when supported.
+
+    FastAPI >= 0.132.0:
+      - APIRouter/APIRoute accept `strict_content_type=...`
+
+    FastAPI < 0.132.0:
+      - passing strict_content_type as an explicit bool would crash at runtime
+      - Default(True) is the safe sentinel (means "don't pass anything")
+    """
+    out = dict(kwargs)
+    if _HAS_STRICT_CONTENT_TYPE:
+        out["strict_content_type"] = strict_content_type
+        return out
+    if not isinstance(strict_content_type, DefaultPlaceholder):
+        raise TypeError(
+            f"'strict_content_type' requires FastAPI >=0.132.0 "
+            f"(installed: {fastapi.__version__})"
+        )
+    return out
 
 
 class ErrorAwareRoute(APIRoute):
@@ -78,6 +110,8 @@ class ErrorAwareRoute(APIRoute):
         generate_unique_id_function: Union[
             Callable[["APIRoute"], str], DefaultPlaceholder
         ] = Default(generate_unique_id),
+        strict_content_type: Union[bool, DefaultPlaceholder] = Default(True),
+        **kwargs: Any,
     ) -> None:
         self.error_map = error_map if error_map is not None else {}
         self.default_on_error = default_on_error
@@ -109,6 +143,9 @@ class ErrorAwareRoute(APIRoute):
             ),
             **(responses if responses is not None else {}),
         }
+        kwargs_with_strict_content_type = _with_strict_content_type(
+            strict_content_type, kwargs
+        )
         super().__init__(
             path,
             endpoint,
@@ -136,6 +173,7 @@ class ErrorAwareRoute(APIRoute):
             callbacks=callbacks,
             openapi_extra=openapi_extra,
             generate_unique_id_function=generate_unique_id_function,
+            **kwargs_with_strict_content_type,
         )
 
 
@@ -375,7 +413,28 @@ class ErrorAwareRouter(APIRouter):
                 """
             ),
         ] = Default(generate_unique_id),
+        strict_content_type: Annotated[
+            bool,
+            Doc(
+                """
+                Enable strict checking for request Content-Type headers.
+
+                When `True` (the default), requests with a body that do not include
+                a `Content-Type` header will **not** be parsed as JSON.
+
+                When `False`, requests without a `Content-Type` header will have
+                their body parsed as JSON.
+
+                Read more about it in the
+                [FastAPI docs for Strict Content-Type](https://fastapi.tiangolo.com/advanced/strict-content-type/).
+                """
+            ),
+        ] = Default(True),
+        **kwargs: Any,
     ) -> None:
+        kwargs_with_strict_content_type = _with_strict_content_type(
+            strict_content_type, kwargs
+        )
         super().__init__(
             prefix=prefix,
             tags=tags,
@@ -394,6 +453,7 @@ class ErrorAwareRouter(APIRouter):
             deprecated=deprecated,
             include_in_schema=include_in_schema,
             generate_unique_id_function=generate_unique_id_function,
+            **kwargs_with_strict_content_type,
         )
 
     def add_api_route(
@@ -437,6 +497,8 @@ class ErrorAwareRouter(APIRouter):
         generate_unique_id_function: Union[
             Callable[[APIRoute], str], DefaultPlaceholder
         ] = Default(generate_unique_id),
+        strict_content_type: Union[bool, DefaultPlaceholder] = Default(True),
+        **kwargs: Any,
     ) -> None:
         route_class = route_class_override or self.route_class
         responses = responses or {}
@@ -455,6 +517,16 @@ class ErrorAwareRouter(APIRouter):
             current_callbacks.extend(callbacks)
         current_generate_unique_id = get_value_or_default(
             generate_unique_id_function, self.generate_unique_id_function
+        )
+        if _HAS_STRICT_CONTENT_TYPE:
+            current_strict_content_type = get_value_or_default(
+                strict_content_type,
+                getattr(self, "strict_content_type", Default(True)),
+            )
+        else:
+            current_strict_content_type = strict_content_type
+        kwargs_with_strict_content_type = _with_strict_content_type(
+            current_strict_content_type, kwargs
         )
         if issubclass(route_class, ErrorAwareRoute):
             route: APIRoute = route_class(
@@ -490,6 +562,7 @@ class ErrorAwareRouter(APIRouter):
                 callbacks=current_callbacks,
                 openapi_extra=openapi_extra,
                 generate_unique_id_function=current_generate_unique_id,
+                **kwargs_with_strict_content_type,
             )
         else:
             route = route_class(
@@ -519,6 +592,7 @@ class ErrorAwareRouter(APIRouter):
                 callbacks=current_callbacks,
                 openapi_extra=openapi_extra,
                 generate_unique_id_function=current_generate_unique_id,
+                **kwargs_with_strict_content_type,
             )
         self.routes.append(route)
 
@@ -559,6 +633,7 @@ class ErrorAwareRouter(APIRouter):
         generate_unique_id_function: Callable[[APIRoute], str] = Default(
             generate_unique_id
         ),
+        **kwargs: Any,
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         def decorator(func: DecoratedCallable) -> DecoratedCallable:
             self.add_api_route(
@@ -593,6 +668,7 @@ class ErrorAwareRouter(APIRouter):
                 callbacks=callbacks,
                 openapi_extra=openapi_extra,
                 generate_unique_id_function=generate_unique_id_function,
+                **kwargs,
             )
             return func
 
@@ -938,6 +1014,7 @@ class ErrorAwareRouter(APIRouter):
                 """
             ),
         ] = Default(generate_unique_id),
+        **kwargs: Any,
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         """
         Add a *path operation* using an HTTP GET operation.
@@ -988,6 +1065,7 @@ class ErrorAwareRouter(APIRouter):
             callbacks=callbacks,
             openapi_extra=openapi_extra,
             generate_unique_id_function=generate_unique_id_function,
+            **kwargs,
         )
 
     def post(
@@ -1330,6 +1408,7 @@ class ErrorAwareRouter(APIRouter):
                 """
             ),
         ] = Default(generate_unique_id),
+        **kwargs: Any,
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         """
         Add a *path operation* using an HTTP POST operation.
@@ -1385,6 +1464,7 @@ class ErrorAwareRouter(APIRouter):
             callbacks=callbacks,
             openapi_extra=openapi_extra,
             generate_unique_id_function=generate_unique_id_function,
+            **kwargs,
         )
 
     def put(
@@ -1727,6 +1807,7 @@ class ErrorAwareRouter(APIRouter):
                 """
             ),
         ] = Default(generate_unique_id),
+        **kwargs: Any,
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         """
         Add a *path operation* using an HTTP PUT operation.
@@ -1782,6 +1863,7 @@ class ErrorAwareRouter(APIRouter):
             callbacks=callbacks,
             openapi_extra=openapi_extra,
             generate_unique_id_function=generate_unique_id_function,
+            **kwargs,
         )
 
     def patch(
@@ -2124,6 +2206,7 @@ class ErrorAwareRouter(APIRouter):
                 """
             ),
         ] = Default(generate_unique_id),
+        **kwargs: Any,
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         """
         Add a *path operation* using an HTTP PATCH operation.
@@ -2179,6 +2262,7 @@ class ErrorAwareRouter(APIRouter):
             callbacks=callbacks,
             openapi_extra=openapi_extra,
             generate_unique_id_function=generate_unique_id_function,
+            **kwargs,
         )
 
     def delete(
@@ -2521,6 +2605,7 @@ class ErrorAwareRouter(APIRouter):
                 """
             ),
         ] = Default(generate_unique_id),
+        **kwargs: Any,
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         """
         Add a *path operation* using an HTTP DELETE operation.
@@ -2571,4 +2656,5 @@ class ErrorAwareRouter(APIRouter):
             callbacks=callbacks,
             openapi_extra=openapi_extra,
             generate_unique_id_function=generate_unique_id_function,
+            **kwargs,
         )
