@@ -4,8 +4,8 @@ from functools import wraps
 from typing import Any, Callable, Optional, Union
 
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import ORJSONResponse
 from starlette.concurrency import run_in_threadpool
+from starlette.responses import JSONResponse
 
 from fastapi_error_map.rules import ErrorMap, resolve_rule_for_error
 from fastapi_error_map.translators import ErrorTranslator
@@ -52,7 +52,7 @@ async def handle_with_error_map(
     default_server_error_translator: ErrorTranslator[Any],
     default_on_error: Optional[Callable[[Exception], Union[Awaitable[None], None]]],
     exclude_none: bool,
-) -> ORJSONResponse:
+) -> JSONResponse:
     try:
         rule = resolve_rule_for_error(
             error=error,
@@ -76,7 +76,7 @@ async def handle_with_error_map(
                 await result
 
     content = rule.translator.from_error(error)
-    return ORJSONResponse(
+    return JSONResponse(
         status_code=rule.status,
         content=jsonable_encoder(
             content,
