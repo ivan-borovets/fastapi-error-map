@@ -7,7 +7,7 @@ sources = ["src"]
 
 [project]
 name = "fastapi-error-map"
-version = "0.9.9"
+version = "0.9.10"
 description = "Elegant per-endpoint error handling for FastAPI that keeps OpenAPI in sync"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -32,7 +32,7 @@ classifiers = [
 ]
 dependencies = [
     "fastapi>=0.100,<1.0",
-    "orjson>=3.11.4",
+    "packaging>=21.0",
 ]
 [dependency-groups]
 dev = [

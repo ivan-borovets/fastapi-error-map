@@ -10,7 +10,9 @@ lint:
 	mypy
 
 test:
-	pytest -v
+	pytest -v \
+		--cov=fastapi_error_map \
+		--cov-report=term-missing
 
 check: lint test
 
