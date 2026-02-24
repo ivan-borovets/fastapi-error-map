@@ -7,8 +7,8 @@ def compatibility(session, fastapi):
     session.run("uv", "sync", "--locked", "--group", "test", "--active", external=True)
 
     if fastapi == "latest":
-        session.run("uv", "add", "fastapi", "--active", external=True)
+        session.run("uv", "pip", "install", "--upgrade", "fastapi", external=True)
     else:
-        session.run("uv", "add", f"fastapi=={fastapi}", "--active", external=True)
+        session.run("uv", "pip", "install", f"fastapi=={fastapi}", external=True)
 
-    session.run("uv", "run", "--active", "make", "test", external=True)
+    session.run("uv", "run", "--no-sync", "--active", "make", "test", external=True)

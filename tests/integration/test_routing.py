@@ -4,8 +4,10 @@ from unittest.mock import Mock
 import httpx
 import pytest
 from fastapi import FastAPI
+from fastapi.routing import APIRouter
 
 from fastapi_error_map import ErrorAwareRouter, rule
+from fastapi_error_map.routing import ErrorAwareRoute
 
 
 class CustomError(Exception):
@@ -52,3 +54,43 @@ async def test_error_aware_router_routes(
     path_item = openapi_data["paths"][router_path][method]
     documented_responses = path_item["responses"]
     assert str(error_status_code) in documented_responses
+
+
+@pytest.mark.asyncio
+async def test_error_aware_route_as_route_class_on_plain_api_router(
+    app: FastAPI,
+    client: httpx.AsyncClient,
+) -> None:
+    router = APIRouter(route_class=ErrorAwareRoute)
+
+    @router.get("/health")
+    async def health() -> dict[str, str]:  # noqa: RUF029
+        return {"status": "ok"}
+
+    app.include_router(router)
+
+    response = await client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_error_aware_router_included_in_another_router(
+    app: FastAPI,
+    client: httpx.AsyncClient,
+) -> None:
+    inner = ErrorAwareRouter()
+
+    @inner.get("/nested")
+    async def nested() -> dict[str, bool]:  # noqa: RUF029
+        return {"nested": True}
+
+    outer = APIRouter()
+    outer.include_router(inner, prefix="/api")
+    app.include_router(outer)
+
+    response = await client.get("/api/nested")
+
+    assert response.status_code == 200
+    assert response.json() == {"nested": True}
