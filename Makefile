@@ -7,12 +7,13 @@ MAKEFLAGS += --no-print-directory
 lint:
 	ruff check --fix
 	ruff format
+	tombi format
+	tombi lint
 	mypy
 
 test:
-	pytest -v \
-		--cov=fastapi_error_map \
-		--cov-report=term-missing
+	coverage run -m pytest -v
+	coverage report --show-missing
 
 check: lint test
 

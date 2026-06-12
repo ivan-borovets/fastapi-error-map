@@ -1,166 +1,173 @@
-[build-system]
-requires = ["hatchling>=1.13"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build]
-sources = ["src"]
-
 [project]
 name = "fastapi-error-map"
-version = "0.9.10"
+version = "1.0.0"
 description = "Elegant per-endpoint error handling for FastAPI that keeps OpenAPI in sync"
 readme = "README.md"
-license = { text = "Apache-2.0" }
-authors = [
-    { name = "Ivan Borovets", email = "ivan.r.borovets@gmail.com" }
-]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Ivan Borovets", email = "ivan.r.borovets@gmail.com" }]
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Topic :: Software Development :: Libraries",
-    "Typing :: Typed",
-    "Intended Audience :: Developers",
-    "Operating System :: OS Independent",
-    "Framework :: FastAPI",
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: FastAPI",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Libraries",
+  "Typing :: Typed",
 ]
 dependencies = [
-    "fastapi>=0.100,<1.0",
-    "packaging>=21.0",
-]
-[dependency-groups]
-dev = [
-    "mypy==1.8.0",
-    "pre-commit==4.2.0",
-    "ruff==0.11.2",
-    { include-group = "test" },
-]
-test = [
-    "coverage==7.10.1",
-    "httpx==0.28.1",
-    "nox==2025.11.12",
-    "pytest==8.4.1",
-    "pytest-asyncio==1.1.0",
-    "pytest-cov==6.2.1",
-]
-publish = [
-    "hatch==1.14.1",
-]
-examples = [
-    "uvicorn==0.35.0",
-]
-all = [
-    { include-group = "dev" },
-    { include-group = "publish" },
-    { include-group = "examples" },
+  "fastapi>=0.100,<1.0",
+  "typing-extensions>=4.1",
 ]
 
 [project.urls]
 Homepage = "https://github.com/ivan-borovets/fastapi-error-map"
 Repository = "https://github.com/ivan-borovets/fastapi-error-map"
 
+[dependency-groups]
+dev = [
+  "mypy==1.20.2",
+  "pre-commit==4.6.0",
+  "ruff==0.15.15",
+  "tombi==0.11.7",
+  { include-group = "test" },
+]
+all = [
+  { include-group = "dev" },
+  { include-group = "examples" },
+  { include-group = "publish" },
+]
+examples = [
+  "uvicorn==0.35.0",
+]
+publish = [
+  "hatch==1.14.1",
+]
+test = [
+  "coverage==7.10.6",
+  "httpx==0.28.1",
+  "nox==2025.11.12",
+  "pytest==9.0.3",
+  "pytest-asyncio==1.4.0",
+  "pytest-cov==7.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
-exclude_also = [
-    "if __name__ == .__main__.:",
-    '@(abc\.)?abstractmethod',
-    "pass",
-    '\.\.\.',
-    "from .*",
-    "import .*",
-    'logging\..*',
-    'log\..*',
+exclude_lines = [
+  ".* = Literal\\[.*\\]",
+  ".* = NewType\\(.*\\)",
+  "@(abc\\.)?abstractmethod",
+  "\\.\\.\\.",
+  "^\\s*raise\\s*$",
+  "from .* import .*",
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "import .*",
+  "logger\\..*",
+  "logging\\..*",
+  "pass",
 ]
 
 [tool.coverage.run]
-source = ["src", ]
-omit = [
-    "**/__init__.py",
-]
-concurrency = [
-    "multiprocessing",
-    "thread",
-]
-parallel = true
+relative_files = true
+source = ["src/fastapi_error_map"]
 branch = true
+omit = [
+  "**/__init__.py",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastapi_error_map"]
 
 [tool.mypy]
-python_version = "3.9"
-files = [
-    "examples",
-    "src",
-    "tests",
-]
+mypy_path = ["src"]
+files = ["examples", "src/fastapi_error_map", "tests"]
+python_version = "3.10"
 strict = true
+pretty = true
+follow_imports = "silent"
 ignore_missing_imports = true
-allow_subclassing_any = true
-disallow_untyped_defs = false
-plugins = [
-    "pydantic.mypy",
+strict_optional = true
+no_implicit_optional = true
+warn_no_return = true
+warn_unreachable = true
+enable_error_code = [
+  "ignore-without-code",
+  "redundant-expr",
+  "truthy-bool",
+  "unused-awaitable",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", ]
-markers = ["slow", ]
-addopts = "-m 'not slow'"
+addopts = ["--color=yes", "-p", "no:cacheprovider"]
+filterwarnings = ["error::fastapi_error_map.ErrorMapWarning"]
+testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
-preview = true  # experimental
+target-version = "py310"
 
 [tool.ruff.format]
 skip-magic-trailing-comma = false
 
 [tool.ruff.lint]
 select = [
-    "A", # flake8-builtins            https://docs.astral.sh/ruff/rules/#flake8-builtins-a
-    "ARG", # flake8-unused-arguments  https://docs.astral.sh/ruff/rules/#flake8-unused-arguments-arg
-    "ASYNC", # flake8-async           https://docs.astral.sh/ruff/rules/#flake8-async-async
-    "B", # flake8-bugbear             https://docs.astral.sh/ruff/rules/#flake8-bugbear-b
-    "C4", # flake8-comprehensions     https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
-    "C90", # mccabe                   https://docs.astral.sh/ruff/rules/#mccabe-c90
-    #    "COM", # flake8-commas            https://docs.astral.sh/ruff/rules/#flake8-commas-com
-    # Incompatible with ruff formatter, but can be useful (uncomment once, then review changes)
-    # See: https://github.com/astral-sh/ruff/issues/9216
-    "DTZ", # flake8-datetimez         https://docs.astral.sh/ruff/rules/#flake8-datetimez-dtz
-    "E", # pycodestyle-error          https://docs.astral.sh/ruff/rules/#error-e
-    "ERA001", # commented-out-code    https://docs.astral.sh/ruff/rules/#eradicate-era
-    "F", # pyflakes                   https://docs.astral.sh/ruff/rules/#pyflakes-f
-    "FLY", # flynt                    https://docs.astral.sh/ruff/rules/#flynt-fly
-    "I", # isort                      https://docs.astral.sh/ruff/rules/#isort-i
-    "LOG", # flake8-logging           https://docs.astral.sh/ruff/rules/#flake8-logging-log
-    "N", # pep8-naming                https://docs.astral.sh/ruff/rules/#pep8-naming-n
-    "PERF", # Perflint                https://docs.astral.sh/ruff/rules/#perflint-perf
-    "PL", # pylint                    https://docs.astral.sh/ruff/rules/#pylint-pl
-    "PT", # flake8-pytest-style       https://docs.astral.sh/ruff/rules/#flake8-pytest-style-pt
-    "PTH", # flake8-use-pathlib       https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth
-    "Q", # flake8-quotes              https://docs.astral.sh/ruff/rules/#flake8-quotes-q
-    "RET", # flake8-return (RET)      https://docs.astral.sh/ruff/rules/#flake8-return-ret
-    "RSE", # flake8-raise (RSE)       https://docs.astral.sh/ruff/rules/#flake8-raise-rse
-    "RUF", # Ruff-specific rules      https://docs.astral.sh/ruff/rules/#ruff-specific-rules-ruf
-    "S", # flake8-bandit              https://docs.astral.sh/ruff/rules/#flake8-bandit-s
-    "SIM", # flake8-simplify          https://docs.astral.sh/ruff/rules/#flake8-simplify-sim
-    "SLF", # flake8-self (SLF)        https://docs.astral.sh/ruff/rules/#flake8-self-slf
-    "SLOT", # flake8-slots            https://docs.astral.sh/ruff/rules/#flake8-slots-slot
-    "T20", # flake8-print             https://docs.astral.sh/ruff/rules/#flake8-print-t20
-    "TCH", # flake8-type-checking     https://docs.astral.sh/ruff/rules/#flake8-type-checking-tch
-    "TID", # flake8-tidy-imports      https://docs.astral.sh/ruff/rules/#flake8-tidy-imports-tid
-    "UP", # pyupgrade                 https://docs.astral.sh/ruff/rules/#pyupgrade-up
-    "W", # pycodestyle-warning        https://docs.astral.sh/ruff/rules/#warning-w
+  "A",  # flake8-builtins
+  "ARG",  # flake8-unused-arguments
+  "ASYNC",  # flake8-async
+  "B",  # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "C90",  # mccabe
+  "DTZ",  # flake8-datetimez
+  "E",  # pycodestyle-error
+  "ERA001",  # commented-out-code
+  "F",  # pyflakes
+  "FAST",  # FastAPI
+  "FLY",  # flynt
+  "FURB",  # refurb
+  "G",  # flake8-logging-format
+  "I",  # isort
+  "ISC",  # flake8-implicit-str-concat
+  "LOG",  # flake8-logging
+  "N",  # pep8-naming
+  "PERF",  # Perflint
+  "PL",  # pylint
+  "PT",  # flake8-pytest-style
+  "PTH",  # flake8-use-pathlib
+  "Q",  # flake8-quotes
+  "RET",  # flake8-return
+  "RSE",  # flake8-raise
+  "RUF",  # Ruff-specific rules
+  "S",  # flake8-bandit
+  "SIM",  # flake8-simplify
+  "SLF",  # flake8-self
+  "SLOT",  # flake8-slots
+  "T20",  # flake8-print
+  "TC",  # flake8-type-checking
+  "TID",  # flake8-tidy-imports
+  "UP",  # pyupgrade
+  "W",  # pycodestyle-warning
 ]
 ignore = [
-    "PLR6301", # no-self-use
+  "PLR0913",  # too-many-arguments — rich declarative signatures are by design here
+  "PLR6301",  # no-self-use
 ]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"typing.TYPE_CHECKING".msg = "TYPE_CHECKING is banned: keep imports at module level; resolve cycles by refactoring."
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
@@ -169,25 +176,15 @@ split-on-trailing-comma = true
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
-    "ARG002", # unused-method-argument
-    "PLR2004", # magic-value-comparison
-    "S101", # assert
+  "ARG001",  # unused-function-argument
+  "ARG002",  # unused-method-argument
+  "ARG005",  # unused-lambda-argument
+  "PLR2004",  # magic-value-comparison
+  "S101",  # assert
 ]
-"examples/errors.py" = [
-    "T201", # print
+"examples/**" = [
+  "T201",  # print
 ]
-"src/fastapi_error_map/error_handling.py" = [
-    "PLR0913", # too-many-arguments
-]
-"src/fastapi_error_map/routing.py" = [
-    "B008", # function-call-in-default-argument
-    "PLR0913", # too-many-arguments
-    "UP006", # non-pep585-annotation
-    "UP035", # deprecated-import
-]
-"src/fastapi_error_map/translators.py" = [
-    "ARG002", # unused-method-argument
-]
-"src/fastapi_error_map/translator_policy.py" = [
-    "PLR2004", # magic-value-comparison
-]
+
+[tool.uv]
+default-groups = ["dev"]
