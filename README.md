@@ -1,324 +1,388 @@
-## FastAPI Error Map
+# fastapi-error-map
 
-[![PyPI version](https://badge.fury.io/py/fastapi-error-map.svg?cacheBust=7)](https://badge.fury.io/py/fastapi-error-map)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/fastapi-error-map?cacheBust=4)
+[![PyPI version](https://badge.fury.io/py/fastapi-error-map.svg)](https://badge.fury.io/py/fastapi-error-map)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/fastapi-error-map)
 [![codecov](https://codecov.io/gh/ivan-borovets/fastapi-error-map/branch/master/graph/badge.svg?token=ABTVQLI0RL)](https://codecov.io/gh/ivan-borovets/fastapi-error-map)
-![GitHub License](https://img.shields.io/github/license/ivan-borovets/fastapi-error-map?cacheBust=1)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ivan-borovets/fastapi-error-map/ci.yaml?cacheBust=1)
+![GitHub License](https://img.shields.io/github/license/ivan-borovets/fastapi-error-map)
+[![CI](https://img.shields.io/github/actions/workflow/status/ivan-borovets/fastapi-error-map/ci.yaml)](https://github.com/ivan-borovets/fastapi-error-map/actions)
 
 Elegant per-endpoint error handling for FastAPI that keeps OpenAPI in sync.
 
-### 📦 Installation
+Declare **on the route** how exceptions become HTTP responses, and the OpenAPI error schema is generated
+from that same declaration. Error handling and schema can't drift — they are one source.
+
+## Install
 
 ```bash
 pip install fastapi-error-map
 ```
 
-### 🚀 Quickstart
+Requires Python 3.10+ and FastAPI 0.100+.
+
+## Quickstart
+
+Two steps:
+
+1. Swap `APIRouter` for `ErrorAwareRouter`.
+2. Declare `error_map` on the route.
 
 ```python
-# A seamless replacement for APIRouter with error mapping support
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+from fastapi_error_map import ErrorAwareRouter, rule
+
+
+class AuthenticationError(Exception): ...
+
+
+class UserNotFoundError(Exception): ...
+
+
+class Stock(BaseModel):
+    available: int
+
+
+def notify(err: Exception) -> None:
+    print(f"lookup failed: {err}")
+
+
 router = ErrorAwareRouter()
 
 
 @router.get(
-    "/stock",
+    "/stock/",
     error_map={
-        # Minimal rule: return 401 and respond with {"error": "..."}
-        # using default translator
-        AuthorizationError: 401,
-        # Full rule: return 409 and respond with custom JSON
-        # using custom translator, and trigger side effect
-        OutOfStockError: rule(
-            status=409,
-            translator=OutOfStockTranslator(),
-            on_error=notify,
-        ),
+        # Short form: map exception to status.
+        AuthenticationError: 401,
+        # Full form: rule() adds side effect (and headers, OpenAPI docs, ...).
+        UserNotFoundError: rule(404, on_error=notify),
     },
 )
-def check_stock(user_id: int = 0) -> None:
+def check_stock(user_id: int = 0) -> Stock:
     if user_id == 0:
-        raise AuthorizationError
-    raise OutOfStockError("No items available.")
+        raise AuthenticationError("authentication required")
+    raise UserNotFoundError(f"user {user_id} not found")
 
+
+app = FastAPI()
+app.include_router(router)
 ```
 
-- Fully compatible with `APIRouter`
-- Error handling centralized at the endpoint level
-- OpenAPI schema automatically generated
+The handler raises. The router maps each exception to its status and body:
+
+- `GET /stock/` → `401 {"error": "authentication required"}`
+- `GET /stock/?user_id=1` → `404 {"error": "user 1 not found"}`
+
+The same map drives OpenAPI schema — `401` and `404` appear under the route, no `responses=` to
+maintain by hand:
 
 <div align="center">
-  <img src="docs/example-openapi.png" alt="Example OpenAPI" width="600"/>
-  <p><em>Figure 1: Example OpenAPI</em></p>
+  <img src="docs/example-openapi.png" alt="Generated OpenAPI error responses" width="600"/>
+  <p><em>Figure 1: error responses generated from the map.</em></p>
 </div>
 
-### 🔍 Why Not Global Handlers?
+Full runnable file: [`examples/readme_quickstart.py`](examples/readme_quickstart.py). For the bare
+minimum — one exception, one status — see [`examples/quickstart.py`](examples/quickstart.py).
 
-To convert application errors into HTTP responses, FastAPI allows attaching exception handlers to the app instance.
-These handlers are global, which makes it harder to customize the response based on context and can become a source of
-hidden bugs.
+## Why not global handlers?
 
-```python
-app.add_exception_handler(UserNotFoundError, error_handler)
-
-```
-
-For example, `error_handler` might turn `UserNotFoundError` into `404 Not Found`.
-But in an authentication context, it might mean `401 Unauthorized`, and in a communication scenario —
-`422 Unprocessable Entity`.
-The fact that a user is missing carries different meaning in different situations.
-
-If accuracy and clarity in your API matter more than the short-term convenience of global (and implicit) exception
-interception, prefer handling exceptions directly in the route — where full context is available: request type, business
-scenario, and client expectations.
-
-You could use `try/except` blocks or a decorator with error mapping.
-The first doesn't keep your views clean and duplicates logic between routes.
-The second solves that, but like the first, remains invisible to FastAPI: the framework can't extract possible responses
-from your decorator to include in the OpenAPI schema.
-You could define `responses` manually, but that risks a mismatch between the schema and actual behavior — because
-there's no single source of truth.
-
-`fastapi-error-map` solves this by letting you define error handling rules right in the route declaration.
-See the [example in the 🚀 Quickstart](#-quickstart).
-
-### ⚙ Using `error_map`
-
-Error handling rules are defined directly in the route declaration of an `ErrorAwareRouter`, using the `error_map`
-parameter.
-
-> [!NOTE]
-> `error_map` handles HTTP error responses only — statuses must be 4xx or 5xx.
-
-There are two ways to do it:
-
-#### 🔸 Short Form
+To turn application errors into HTTP responses, FastAPI lets you attach a global handler:
 
 ```python
-error_map = {
-    SomeError: 400,
-}
-
+app.add_exception_handler(UserNotFoundError, handle_user_not_found)
 ```
 
-Which is equivalent to:
+It works at runtime, and quietly costs you two things.
+
+First, you cannot see it at the route. The handler lives elsewhere, so the route never shows which
+errors it returns — and neither does OpenAPI: the schema lists `200` and `422`, never the `404` you
+actually send. Your Swagger is wrong the moment you add a handler.
+
+Second, one type maps to one response — for every route. But exception meaning is local.
+`UserNotFoundError` is `404` in a lookup, yet `401` behind authentication, where a missing user means
+"access denied", not "no such resource". A global handler sees the type, not the context, so it maps
+both the same.
+
+Common local workarounds:
+
+- `try/except` in the route repeats mapping logic across handlers, clutters the view, and stays
+  invisible to OpenAPI — FastAPI cannot read your `except` blocks back into the schema.
+- Manual `responses=` documents the error in a second place. Nothing keeps it in step with the
+  route; the schema drifts on the next change, with no warning.
+
+Neither gives accurate behavior and accurate schema. The map gives both from one declaration.
+
+## What you get
+
+- **Per-route mapping.** Plain dict, or `rule(...)` when status is not enough — to set body,
+  headers, side effect, or to enrich the OpenAPI entry with description and examples.
+- **OpenAPI from the same map.** Every mapped error lands in the schema — no `responses=` to maintain
+  by hand, though one you pass yourself still wins on its status.
+- **Standard envelope, without writing one.** `structured()` returns `{code, message, details}`
+  from your exception's attributes.
+- **Custom formats are plain callables.** Any `Callable[[Exception], T]`; its return annotation
+  becomes the schema model.
+- **Built-in envelopes keep 5xx opaque.** `simple()` and `structured()` hide server detail by default;
+  `structured()` can expose chosen types.
+- **Plays fair with FastAPI.** `HTTPException` and request validation pass through untouched. Unmapped
+  exceptions are re-raised with their original type and traceback, and logged by default so gaps in
+  the map stay visible.
+- **Dependencies covered.** Exceptions from `Depends()` (auth, quotas) are mapped by the same route.
+- **Headers are part of the contract.** `Retry-After`, `WWW-Authenticate` declared in the rule, sent
+  at runtime, shown in OpenAPI.
+- **Service-wide policy in one place.** Envelope and callbacks set once on the router; each route
+  declares only what is specific to it.
+- **Mistakes surface early.** A translator's return type is the schema model — mypy flags the
+  mismatch; bad config fails at startup, naming the route.
+- **Fits existing codebases.** Drop in `ErrorAwareRouter`, or keep your `APIRouter` and use
+  `@error_map`.
+
+## error_map: short and full form
+
+`error_map` maps each exception type to a status, or to a `rule()`. Statuses must be 4xx or 5xx —
+anything else fails at startup with `RouteConfigError`.
+
+The short form maps to a status:
 
 ```python
-error_map = {
-    SomeError: rule(status=400),
-}
-
+error_map = {SomeError: 404}
 ```
 
-In both cases, the default translator is used, which returns JSON like:
-
-```json
-{
-  "error": "..."
-}
-```
-
-#### 🔹 Full Form
-
-Allows you to specify the status code, and optionally a `translator` and `on_error`:
+It is exactly the full form with defaults:
 
 ```python
-error_map = {
-    MyError: rule(
-        status=409,
-        translator=MyTranslator(),
-        on_error=report_to_sentry,
-    ),
-}
-
+error_map = {SomeError: rule(404)}
 ```
 
-Parameters of `rule(...)`, * — required:
+Both use the default `simple()` translator: `{"error": str(err)}` for 4xx, opaque message for 5xx.
+Reach for `rule(...)` when status is not enough — for custom body, headers, side effect, or
+richer OpenAPI.
 
-- `status`* — HTTP status code to return (must be 4xx or 5xx; e.g. `404`, `409`, `422`)
-- `translator` — object that converts an exception into serializable payload. If not provided, the default one is used
-  (`{ "error": str(err) }` for 4xx; `{ "error": "Internal server error" }` for 5xx).
-- `on_error` — function to call when an exception occurs (e.g. logging or alerting). Can be awaitable
+## Resolution (MRO)
 
-#### 🧩 Matching semantics
+An exception is matched along its method resolution order: the most specific mapped type wins, then
+parents in MRO order. Map `BaseError` and raise `ChildError(BaseError)` → the `BaseError` rule applies,
+unless `ChildError` is mapped too, in which case it takes precedence.
 
-`error_map` resolves exceptions using Python's Method Resolution Order (MRO).
-The most specific exception type is matched first.
-If no exact match is found, parent classes are checked in MRO order.
-
-For example, if you map `BaseError` and raise `ChildError(BaseError)`,
-the rule for `BaseError` will apply — unless a specific rule for
-`ChildError` is defined, in which case it takes precedence.
-
-### 🧰 Custom Translators
-
-If you want to change the error response format, define your own `translator` — object that implements `ErrorTranslator`
-protocol.
-It has:
-
-- `.from_error(err)` — turns exception into serializable object
-- `.error_response_model_cls` — returns a class describing object structure (used for OpenAPI)
-
-Example:
+## rule()
 
 ```python
-from dataclasses import dataclass
-from fastapi_error_map.translators import ErrorTranslator
+def rule(
+    status: int,
+    *,
+    translator: Translator[T] | None = None,
+    headers: Headers | None = None,
+    on_error: OnError | None = None,
+    openapi_model: type[T] | None = None,
+    openapi_description: str | None = None,
+    openapi_examples: dict[str, Any] | None = None,
+) -> Rule: ...
+```
 
+- **`status`** — HTTP status to return (4xx or 5xx).
+- **`translator`** — `Callable[[Exception], T]` building the response body. Its return annotation
+  becomes the OpenAPI model. Defaults to the router's translator. A translator that raises is not
+  caught and surfaces as `500` (unlike `on_error`), so handle every exception it may receive — with
+  `structured()`, guard attributes the exception may lack.
+- **`headers`** — static `Mapping` (introspected into OpenAPI) or callable `(err) -> Mapping[str, str]`
+  (resolved per request, not introspected). The callable shapes the response, so it must return a mapping
+  and not raise. Values reach the client verbatim on every status, 5xx included, so put only
+  safe-to-expose data here. Custom `Content-Type` (e.g. `application/problem+json`) goes here too.
+- **`on_error`** — side effect for observability: logging, metrics, alerting. Sync or async, runs
+  inline. If it raises, the failure is logged and the mapped response is still sent — a broken side
+  effect leaves the response intact.
+- **`openapi_model`** — schema model, when the translator has no return annotation (lambda, or
+  `-> None`) or to override inference.
+- **`openapi_description`**, **`openapi_examples`** — documentation for the response.
 
-@dataclass
-class MyErrorResponse:
+`on_error` is awaited before the response, so keep it light — it adds to response latency. A blocking
+sync call (sync HTTP, disk) stalls the loop for other requests; mark it with `to_threadpool` to
+run it off the loop:
+
+```python
+from fastapi_error_map import to_threadpool
+
+rule(503, on_error=to_threadpool(write_audit_log))
+```
+
+This offloads the loop, not the wait — the response still waits for the callback. To answer without
+waiting, schedule the work (task, queue) and return.
+
+One rule carrying header, callback, and documented body:
+
+```python
+RateLimitedError: rule(
+    429,
+    translator=to_body,
+    headers=retry_after_header,        # (err) -> {"Retry-After": ...}
+    on_error=log_rate_limit,
+    openapi_description="Per-client report quota exhausted.",
+)
+```
+
+Runnable: [`examples/extended_rule.py`](examples/extended_rule.py).
+
+## Built-in envelopes: simple() and structured()
+
+A translator factory turns a body format into a per-route translator. Two are built in; both keep 5xx
+opaque so server internals never reach the client.
+
+**`simple()`** — the default. `{"error": str(err)}` for 4xx, opaque message for 5xx. Reads only
+`str(err)`, so it works on any exception. Rarely written out:
+
+```python
+router = ErrorAwareRouter(translator_factory=simple())
+```
+
+**`structured()`** — `{code, message, details}` envelope:
+
+```python
+router = ErrorAwareRouter(translator_factory=structured())
+```
+
+By default it reads `err.code`, `str(err)`, and `err.details`. Missing, empty, or non-string `code`
+falls back to the status name (`"HTTP_404_NOT_FOUND"`). Absent `message`/`details` keys are omitted,
+never `null`.
+
+When your exceptions carry that data under other names, point each field at its attribute —
+explicitly, nothing is guessed:
+
+```python
+structured(
+    code=lambda err: err.error_code,
+    message=lambda err: err.reason,
+    details=lambda err: err.context,
+)
+```
+
+5xx stays opaque: `message` becomes `server_message`, never `str(err)`. Whitelist types to render in
+full with `exposed_5xx_types`. Opacity is body-only — headers are still sent as declared.
+
+Runnable: [`examples/structured_envelope.py`](examples/structured_envelope.py),
+[`examples/custom_fields.py`](examples/custom_fields.py).
+
+## Custom envelope
+
+Need a different envelope entirely? A `TranslatorFactory` is a function returning a function —
+`(status) -> (err) -> body`. `simple()` and `structured()` are built exactly this way.
+
+```python
+class ProblemDetail(TypedDict):
     type: str
-    message: str
+    title: str
+    status: int
+    detail: str
 
 
-class MyTranslator(ErrorTranslator[MyErrorResponse]):
-    @property
-    def error_response_model_cls(self) -> type[MyErrorResponse]:
-        return MyErrorResponse
+def problem_detail(status_code: int) -> Callable[[Exception], ProblemDetail]:
+    title = HTTPStatus(status_code).phrase
 
-    def from_error(self, err: Exception) -> MyErrorResponse:
-        return MyErrorResponse(
-            type=type(err).__name__,
-            message=str(err),
+    def translate(err: Exception) -> ProblemDetail:
+        return ProblemDetail(
+            type="about:blank", title=title, status=status_code, detail=str(err),
         )
 
+    return translate
+
+
+router = ErrorAwareRouter(translator_factory=problem_detail)
 ```
 
-#### ⚠️ Translator robustness
+The model is inferred from the inner translator's return annotation; pass `openapi_model=` on the rule
+when there is none. A custom factory owns its output fully — 5xx opacity is yours to keep, so guard
+`str(err)` at 5xx if the body might carry server detail.
 
-Custom translators should not raise exceptions.
-If `from_error(...)` fails at runtime, the exception will propagate to FastAPI’s global handlers.
-
-### 🔄 Side Effects (`on_error`)
-
-The `on_error` parameter in `rule(...)` allows specifying function to run when exception occurs, before response is
-generated. The awaitable function will be awaited.
-It doesn’t change the response status/body when it succeeds and is useful for:
-
-- logging
-- sending alerts
-- metrics
-- debugging
-
-Example:
+This is also how you get RFC 9457 `problem+json` — the body above, plus its content type on the rule:
 
 ```python
-def notify_admin(err: Exception) -> None:
-    print(f"[!] Error: {type(err).__name__} — {err}")
-
-
-error_map = {
-    DangerousOperationError: rule(
-        status=500,
-        translator=MyTranslator(),
-        on_error=notify_admin,
-    ),
-}
-
+ForbiddenError: rule(403, headers={"Content-Type": "application/problem+json"})
 ```
 
-#### 🚨 Strict side effects
+The runtime response carries `application/problem+json`. The OpenAPI schema documents the model under
+`application/json` — FastAPI binds a response model to that content key, so the schema describes the
+body's shape there regardless of the wire content type.
 
-`on_error` is executed before the response is generated.
-If it raises, the exception propagates and the request fails.
-This is intentional to avoid hiding errors in side effects — they should be fixed rather than silently ignored.
-Keep `on_error` robust or wrap it on your side if you prefer soft-fail logging.
+Runnable: [`examples/custom_factory.py`](examples/custom_factory.py).
 
-> [!NOTE]
-> Both translator and `on_error` receive the raised exception as an argument.
-> If your implementation does not use it, suppress the unused-argument warning from your linter (e.g. `# noqa: ARG002`
-> for Ruff).
+## FastAPI interop and router-level policy
 
-### 🧠 Parameter Precedence
+Two ways to adopt the map.
 
-Error handling and schema generation in `fastapi-error-map` are fully driven by route-level arguments to `.get()`,
-`.post()`, etc.
+**Drop-in.** `ErrorAwareRouter` replaces `APIRouter`. Router-level arguments set policy for every route;
+per-route `error_map` declares the specifics:
 
-#### 📎 Core Parameters
-
-In addition to `error_map`, you can also pass:
-
-```
-@router.get(
-    "/path",
-    error_map=...,
-    default_on_error=...,
-    warn_on_unmapped=...,
-    default_client_error_translator=...,
-    default_server_error_translator=...,
-    exclude_none=...,
+```python
+router = ErrorAwareRouter(
+    translator_factory=structured(),   # envelope for all routes
+    on_error=report,                   # default side effect
+    warn_on_unmapped=True,             # log exceptions not in any map (default)
 )
 ```
 
-These parameters apply to the current route only.
-They are not set on the router level (for now).
+Policy belongs to the router that declares the route. It is decided at that point and does not change
+later. `include_router` keeps those routes as they are, so the map still works when you nest routers.
 
-#### ➕ How Parameters Are Resolved
+But policy is not inherited, unlike `dependencies` or `tags`. A child router gets nothing from its
+parent. If the parent maps `{ServerError: 503}` and a `ServerError` is raised in a child router, it is
+not caught: it stays unhandled. This is FastAPI's limit, not our choice.
+`include_router` copies the child routes instead of linking them, and it does not know about our
+`error_map`, so FastAPI gives us no way to pass policy down. For now, to use the same policy in many
+modules, you have to set it on each router yourself: keep the shared `error_map` and settings in one
+place, and pass them to every router that needs them.
 
-When an error occurs, `fastapi-error-map` processes it as follows:
-
-1. `status` is taken from `rule(...)`, or from short form: `SomeError: 400`
-2. `translator`:
-
-- If provided in `rule(...)`, it is used
-- Otherwise:
-    - If the status is `< 500`, `default_client_error_translator` is used (if given)
-    - If the status is `>= 500`, `default_server_error_translator` is used (if given)
-    - If none are set, the built-in one is used:
-  ```raw
-  { "error": str(err) } for 4xx;
-  { "error": "Internal server error" } for 5xx
-  ```
-
-3. `on_error`:
-    - If provided in `rule(...)`, it is used
-    - Otherwise, `default_on_error` is used if provided
-    - If neither is set, nothing is called
-
-4. `exclude_none`:
-    - If `True`, fields with value `None` are omitted from the serialized
-      error response body
-    - If `False` (default), `None` values are included as `null`
-
-#### 🧾 OpenAPI: `responses` Takes Priority
-
-If you explicitly pass the `responses=...` parameter to `.get(...)` / `.post(...)`, it overrides the schema generation
-from `error_map` — but only for the specified status codes.
+**Without replacing your router.** Keep your own `APIRouter`; give it our `route_class` (interception
+point) and put `@error_map` on the endpoint (the map). Both parts are required; any custom `route_class`
+must subclass `ErrorAwareRoute`:
 
 ```python
-@router.get(
-    "/foo",
-    error_map={SomeError: 400},
-    responses={400: {"model": {}}},  # ← this wins
-)
+router = APIRouter(route_class=ErrorAwareRoute)
 
+
+@router.get("/accounts/{account_id}/")
+@error_map({ForbiddenError: 403})
+def get_account(account_id: int) -> Account: ...
 ```
 
-#### ❗ Handling Unmapped Exceptions (`warn_on_unmapped`)
+Runnable: [`examples/interop.py`](examples/interop.py).
 
-By default (`warn_on_unmapped=True`), `fastapi-error-map` expects every exception raised in a handler to be explicitly
-listed in `error_map`.  
-If a rule is missing, a `RuntimeError` is raised, and the original exception is attached as `__cause__`.
-This helps you catch missing error cases at runtime.
+## Pass-through and unmapped exceptions
 
-If you set `warn_on_unmapped=False`, the library won’t complain about missing rules and will re-raise the exception
-as-is.
-In that case:
+`HTTPException` and `RequestValidationError` are rendered by FastAPI, never by the map — even under a
+broad `{Exception: 500}`. On `ErrorAwareRouter`, mapping one of them has no effect and warns with
+`ErrorMapWarning` at declaration; mapping `422` warns too, as it shadows request validation — give
+your own validation error a different 4xx, such as `400`. The `@error_map` interop path behaves
+identically — framework exception passes through, `422` is shadowed — but emits no warning.
 
-- the exception type is preserved
-- the original stack trace is retained
-- the global `@app.exception_handler(...)` in FastAPI will receive raw exception
+Unmapped exceptions are re-raised with their original type and traceback, reaching your global
+`@app.exception_handler(...)` unchanged. `warn_on_unmapped` (on by default) logs each one first, so a
+missing entry surfaces in the logs; it controls only that warning, never the re-raise. Passing
+`error_map` to a WebSocket route fails at startup; mapping wraps HTTP only.
 
-#### 📘 Handling by FastAPI
+## OpenAPI generation
 
-FastAPI will always catch unhandled exceptions and pass them to the global `@app.exception_handler(...)` if defined.
-This behavior is not affected by `warn_on_unmapped`.
+From the map, the schema picks up automatically: status codes, the response model (translator return
+annotation, or `openapi_model`), static header names, and any `openapi_description` /
+`openapi_examples`. Several exceptions on one status become an `anyOf` union. Callable headers are
+per-request, so they are not introspected. Any `responses=` you pass yourself wins on a status it shares
+with the map.
 
-If the error is declared in `error_map`, `fastapi-error-map` handles the response itself — the global handler will not
-be triggered.
+The schema is read from the same declaration that handles the error (Figure 1) — one source, no drift.
 
-### 📚 Examples
+## Examples
 
-- Minimal usage: [`examples/`](./examples/main.py)
-- More advanced usage: [Clean Architecture example app](https://github.com/ivan-borovets/fastapi-clean-example)
+Each file is runnable with `python -m examples.<name>`:
+
+- [`quickstart.py`](examples/quickstart.py) — one exception, one status.
+- [`readme_quickstart.py`](examples/readme_quickstart.py) — the Quickstart above, end to end.
+- [`structured_envelope.py`](examples/structured_envelope.py) — `structured()` with 5xx kept opaque.
+- [`custom_fields.py`](examples/custom_fields.py) — `structured()` reading your own attribute names.
+- [`custom_factory.py`](examples/custom_factory.py) — custom envelope (RFC 9457 `problem+json`).
+- [`extended_rule.py`](examples/extended_rule.py) — one `rule()` with header, side effect, and docs.
+- [`interop.py`](examples/interop.py) — adoption via `route_class` + `@error_map`.
+
+For a larger application, see the [Clean Architecture example app](https://github.com/ivan-borovets/fastapi-clean-example).
+
+## License
+
+[Apache-2.0](LICENSE).
