@@ -320,8 +320,16 @@ router = ErrorAwareRouter(
 )
 ```
 
-Policy lives on the router that declares the route, and it is baked in at declaration. `include_router`
-carries those routes intact; a router you nest keeps its own policy.
+Policy belongs to the router that declares the route. It is decided at that point and does not change
+later. `include_router` keeps those routes as they are, so the map still works when you nest routers.
+
+But policy is not inherited, unlike `dependencies` or `tags`. A child router gets nothing from its
+parent. If the parent maps `{ServerError: 503}` and a `ServerError` is raised in a child router, it is
+not caught: it stays unhandled. This is FastAPI's limit, not our choice.
+`include_router` copies the child routes instead of linking them, and it does not know about our
+`error_map`, so FastAPI gives us no way to pass policy down. For now, to use the same policy in many
+modules, you have to set it on each router yourself: keep one shared `error_map` and settings, and
+spread them (`{**COMMON_MAP, ...}`, `**POLICY`) into every router.
 
 **Without replacing your router.** Keep your own `APIRouter`; give it our `route_class` (interception
 point) and put `@error_map` on the endpoint (the map). Both parts are required; any custom `route_class`
