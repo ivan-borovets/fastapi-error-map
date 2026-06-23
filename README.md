@@ -111,7 +111,7 @@ Local alternatives are no better:
 - Manual `responses=` documents the error in a second place. Nothing keeps it in step with the
   route; the schema drifts on the next change, with no warning.
 
-Neither gives accurate behavior *and* accurate schema. The map gives both from one declaration.
+Neither gives accurate behavior and accurate schema. The map gives both from one declaration.
 
 ## What you get
 
@@ -133,7 +133,7 @@ Neither gives accurate behavior *and* accurate schema. The map gives both from o
   at runtime, shown in OpenAPI.
 - **Service-wide policy in one place.** Envelope and callbacks set once on the router; each route
   declares only what is specific to it.
-- **Mistakes surface early.** A translator's return type *is* the schema model — mypy flags the
+- **Mistakes surface early.** A translator's return type is the schema model — mypy flags the
   mismatch; bad config fails at startup, naming the route.
 - **Fits existing codebases.** Drop in `ErrorAwareRouter`, or keep your `APIRouter` and use
   `@error_map`.
