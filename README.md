@@ -104,7 +104,7 @@ Second, one type maps to one response — for every route. But exception meaning
 "access denied", not "no such resource". A global handler sees the type, not the context, so it maps
 both the same.
 
-Local alternatives are no better:
+Common local workarounds:
 
 - `try/except` in the route repeats mapping logic across handlers, clutters the view, and stays
   invisible to OpenAPI — FastAPI cannot read your `except` blocks back into the schema.
