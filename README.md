@@ -328,8 +328,8 @@ parent. If the parent maps `{ServerError: 503}` and a `ServerError` is raised in
 not caught: it stays unhandled. This is FastAPI's limit, not our choice.
 `include_router` copies the child routes instead of linking them, and it does not know about our
 `error_map`, so FastAPI gives us no way to pass policy down. For now, to use the same policy in many
-modules, you have to set it on each router yourself: keep one shared `error_map` and settings, and
-spread them (`{**COMMON_MAP, ...}`, `**POLICY`) into every router.
+modules, you have to set it on each router yourself: keep the shared `error_map` and settings in one
+place, and pass them to every router that needs them.
 
 **Without replacing your router.** Keep your own `APIRouter`; give it our `route_class` (interception
 point) and put `@error_map` on the endpoint (the map). Both parts are required; any custom `route_class`
