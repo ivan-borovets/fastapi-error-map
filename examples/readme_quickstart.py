@@ -5,8 +5,8 @@ Short form maps a status; ``rule()`` adds a side effect.
 The default translator renders both as ``{"error": ...}``.
 
 Run: python -m examples.readme_quickstart
-- GET /stock/           -> 401 {"error": "authorization required"}
-- GET /stock/?user_id=1 -> 409 {"error": "no items available"}
+- GET /stock/           -> 401 {"error": "authentication required"}
+- GET /stock/?user_id=1 -> 404 {"error": "user 1 not found"}
 """
 
 from fastapi import FastAPI
@@ -15,10 +15,10 @@ from pydantic import BaseModel
 from fastapi_error_map import ErrorAwareRouter, rule
 
 
-class AuthorizationError(Exception): ...
+class AuthenticationError(Exception): ...
 
 
-class OutOfStockError(Exception): ...
+class UserNotFoundError(Exception): ...
 
 
 class Stock(BaseModel):
@@ -26,7 +26,7 @@ class Stock(BaseModel):
 
 
 def notify(err: Exception) -> None:
-    print(f"out of stock: {err}")
+    print(f"lookup failed: {err}")
 
 
 def make_app() -> FastAPI:
@@ -35,14 +35,14 @@ def make_app() -> FastAPI:
     @router.get(
         "/stock/",
         error_map={
-            AuthorizationError: 401,
-            OutOfStockError: rule(409, on_error=notify),
+            AuthenticationError: 401,
+            UserNotFoundError: rule(404, on_error=notify),
         },
     )
     def check_stock(user_id: int = 0) -> Stock:
         if user_id == 0:
-            raise AuthorizationError("authorization required")
-        raise OutOfStockError("no items available")
+            raise AuthenticationError("authentication required")
+        raise UserNotFoundError(f"user {user_id} not found")
 
     app = FastAPI()
     app.include_router(router)

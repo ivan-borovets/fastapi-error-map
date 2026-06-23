@@ -33,10 +33,10 @@ from pydantic import BaseModel
 from fastapi_error_map import ErrorAwareRouter, rule
 
 
-class AuthorizationError(Exception): ...
+class AuthenticationError(Exception): ...
 
 
-class OutOfStockError(Exception): ...
+class UserNotFoundError(Exception): ...
 
 
 class Stock(BaseModel):
@@ -44,7 +44,7 @@ class Stock(BaseModel):
 
 
 def notify(err: Exception) -> None:
-    print(f"out of stock: {err}")
+    print(f"lookup failed: {err}")
 
 
 router = ErrorAwareRouter()
@@ -54,15 +54,15 @@ router = ErrorAwareRouter()
     "/stock/",
     error_map={
         # Short form: map exception to status.
-        AuthorizationError: 401,
+        AuthenticationError: 401,
         # Full form: rule() adds side effect (and headers, OpenAPI docs, ...).
-        OutOfStockError: rule(409, on_error=notify),
+        UserNotFoundError: rule(404, on_error=notify),
     },
 )
 def check_stock(user_id: int = 0) -> Stock:
     if user_id == 0:
-        raise AuthorizationError("authorization required")
-    raise OutOfStockError("no items available")
+        raise AuthenticationError("authentication required")
+    raise UserNotFoundError(f"user {user_id} not found")
 
 
 app = FastAPI()
@@ -71,10 +71,10 @@ app.include_router(router)
 
 The handler raises. The router maps each exception to its status and body:
 
-- `GET /stock/` → `401 {"error": "authorization required"}`
-- `GET /stock/?user_id=1` → `409 {"error": "no items available"}`
+- `GET /stock/` → `401 {"error": "authentication required"}`
+- `GET /stock/?user_id=1` → `404 {"error": "user 1 not found"}`
 
-The same map drives OpenAPI schema — `401` and `409` appear under the route, no `responses=` to
+The same map drives OpenAPI schema — `401` and `404` appear under the route, no `responses=` to
 maintain by hand:
 
 <div align="center">
@@ -93,11 +93,18 @@ To turn application errors into HTTP responses, FastAPI lets you attach a global
 app.add_exception_handler(UserNotFoundError, handle_user_not_found)
 ```
 
-One handler, one response — for every route. But exception meaning is local. `UserNotFoundError` is
-`404` in a lookup, yet `401` behind authentication, where a missing user means "access denied", not
-"no such resource". Global handlers see the type, not the context, so they cannot tell them apart.
+It works at runtime, and quietly costs you two things.
 
-Local alternatives are worse:
+First, you cannot see it at the route. The handler lives elsewhere, so the route never shows which
+errors it returns — and neither does OpenAPI: the schema lists `200` and `422`, never the `404` you
+actually send. Your Swagger is wrong the moment you add a handler.
+
+Second, one type maps to one response — for every route. But exception meaning is local.
+`UserNotFoundError` is `404` in a lookup, yet `401` behind authentication, where a missing user means
+"access denied", not "no such resource". A global handler sees the type, not the context, so it maps
+both the same.
+
+Local alternatives are no better:
 
 - `try/except` in the route repeats mapping logic across handlers, clutters the view, and stays
   invisible to OpenAPI — FastAPI cannot read your `except` blocks back into the schema.

@@ -37,15 +37,15 @@ async def test_readme_quickstart_maps_short_form(client: httpx.AsyncClient) -> N
     r = await client.get("/stock/")
 
     assert r.status_code == status.HTTP_401_UNAUTHORIZED
-    assert r.json() == {"error": "authorization required"}
+    assert r.json() == {"error": "authentication required"}
 
 
 @pytest.mark.parametrize("client", [readme_quickstart.make_app], indirect=True)
 async def test_readme_quickstart_maps_full_form_rule(client: httpx.AsyncClient) -> None:
     r = await client.get("/stock/", params={"user_id": 1})
 
-    assert r.status_code == status.HTTP_409_CONFLICT
-    assert r.json() == {"error": "no items available"}
+    assert r.status_code == status.HTTP_404_NOT_FOUND
+    assert r.json() == {"error": "user 1 not found"}
 
 
 @pytest.mark.parametrize("client", [structured_envelope.make_app], indirect=True)
