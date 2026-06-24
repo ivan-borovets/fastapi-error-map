@@ -27,7 +27,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Build
-        run: uv build
+        run: uv build --python 3.13
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
